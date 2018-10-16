@@ -8,8 +8,6 @@ import cc.redberry.rings.scaladsl.{Ring, _}
 
 import scala.language.implicitConversions
 
-//[Term <: AMonomial[Term], Poly <: AMultivariatePolynomial[Term, Poly], E]
-
 /** Methods for reducing massless integrals */
 class MasslessIntegrals[E](cfRing: Ring[E],
                            databaseFile: Option[String] = None,
@@ -121,307 +119,308 @@ class MasslessIntegrals[E](cfRing: Ring[E],
   }
 
   /** Computes 5-point massless integral, first looking into a cache */
-  def I5(n1: Int, n2: Int, n3: Int, n4: Int, n5: Int, d: Expr,
+  def I5(n1: Int, n2: Int, n3: Int, n4: Int, n5: Int, di: Int,
          s12: Expr, s23: Expr, s34: Expr, s45: Expr, s15: Expr,
          s13: Expr, s14: Expr, s24: Expr, s25: Expr, s35: Expr,
          factorized: Boolean = false)
   : Either[IntegralVal[Expr], FactorizedIntegralVal[Expr]] = {
     // integral definition
+    val d = momentums.dim + di
     val iDef = IntegralDef(fivePointDef, Seq(n1, n2, n3, n4, n5), Seq(d, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
     // get from cache or compute from scratch
-    getOrCompute(iDef, () => __I5(iDef, n1, n2, n3, n4, n5, d, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35), factorized)
+    getOrCompute(iDef, () => __I5(iDef, n1, n2, n3, n4, n5, di, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35), factorized)
   }
 
   /** Computes 5-point massless integral, first looking into a cache */
   private
-  def _I5(n1: Int, n2: Int, n3: Int, n4: Int, n5: Int, d: Expr,
+  def _I5(n1: Int, n2: Int, n3: Int, n4: Int, n5: Int, di: Int,
           s12: Expr, s23: Expr, s34: Expr, s45: Expr, s15: Expr,
           s13: Expr, s14: Expr, s24: Expr, s25: Expr, s35: Expr)
   : IntegralVal[Expr] =
-    I5(n1, n2, n3, n4, n5, d, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35, factorized = false).left.get
+    I5(n1, n2, n3, n4, n5, di, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35, factorized = false).left.get
 
   /** actual calculation of 5-point massless integral */
   private
   def __I5(iDef: IntegralDef[Expr],
-           n1: Int, n2: Int, n3: Int, n4: Int, n5: Int, d: Expr,
+           n1: Int, n2: Int, n3: Int, n4: Int, n5: Int, di: Int,
            s12: Expr, s23: Expr, s34: Expr, s45: Expr, s15: Expr,
            s13: Expr, s14: Expr, s24: Expr, s25: Expr, s35: Expr): IntegralVal[Expr] = {
 
     assertInput(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
 
     if (n1 == 0)
-      return _I4(n2, n3, n4, n5, d, s23, s34, s45, s25, s35, s24)
+      return _I4(n2, n3, n4, n5, di, s23, s34, s45, s25, s35, s24)
 
     if (n2 == 0)
-      return _I4(n1, n3, n4, n5, d, s13, s34, s45, s15, s35, s14)
+      return _I4(n1, n3, n4, n5, di, s13, s34, s45, s15, s35, s14)
 
     if (n3 == 0)
-      return _I4(n1, n2, n4, n5, d, s12, s24, s45, s15, s25, s14)
+      return _I4(n1, n2, n4, n5, di, s12, s24, s45, s15, s25, s14)
 
     if (n4 == 0)
-      return _I4(n1, n2, n3, n5, d, s12, s23, s35, s15, s25, s13)
+      return _I4(n1, n2, n3, n5, di, s12, s23, s35, s15, s25, s13)
 
     if (n5 == 0)
-      return _I4(n1, n2, n3, n4, d, s12, s23, s34, s14, s24, s13)
+      return _I4(n1, n2, n3, n4, di, s12, s23, s34, s14, s24, s13)
 
     if (n1 > 1)
       return ring(1) /
         ge4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) / (n1 - 1) *
-        (DerDet5x1(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x11(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 2, n2, n3, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x12(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2 - 1, n3, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x13(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3 - 1, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x14(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3, n4 - 1, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x15(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3, n4, n5 - 1, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
+        (DerDet5x1(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x11(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 2, n2, n3, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x12(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2 - 1, n3, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x13(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3 - 1, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x14(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3, n4 - 1, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x15(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3, n4, n5 - 1, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
 
     if (n2 > 1)
       return ring(1) / ge4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) / (n2 - 1) *
-        (DerDet5x2(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x21(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2 - 1, n3, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x22(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 2, n3, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x23(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3 - 1, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x24(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3, n4 - 1, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x25(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3, n4, n5 - 1, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
+        (DerDet5x2(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x21(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2 - 1, n3, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x22(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 2, n3, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x23(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3 - 1, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x24(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3, n4 - 1, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x25(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3, n4, n5 - 1, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
 
     if (n3 > 1)
       return ring(1) / ge4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) / (n3 - 1) *
-        (DerDet5x3(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 1, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x31(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3 - 1, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x32(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3 - 1, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x33(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 2, n4, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x34(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 1, n4 - 1, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x35(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 1, n4, n5 - 1, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
+        (DerDet5x3(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 1, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x31(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3 - 1, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x32(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3 - 1, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x33(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 2, n4, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x34(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 1, n4 - 1, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x35(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 1, n4, n5 - 1, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
 
     if (n4 > 1)
       return ring(1) / ge4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) / (n4 - 1) *
-        (DerDet5x4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4 - 1, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x41(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3, n4 - 1, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x42(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3, n4 - 1, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x43(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 1, n4 - 1, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x44(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4 - 2, n5, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x45(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4 - 1, n5 - 1, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
+        (DerDet5x4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4 - 1, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x41(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3, n4 - 1, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x42(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3, n4 - 1, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x43(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 1, n4 - 1, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x44(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4 - 2, n5, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x45(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4 - 1, n5 - 1, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
 
     if (n5 > 1)
       return ring(1) / ge4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) / (n5 - 1) *
-        (DerDet5x5(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4, n5 - 1, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x51(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3, n4, n5 - 1, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x52(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3, n4, n5 - 1, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x53(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 1, n4, n5 - 1, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x54(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4 - 1, n5 - 1, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-          + DerDet5x55(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4, n5 - 2, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
+        (DerDet5x5(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4, n5 - 1, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x51(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1 - 1, n2, n3, n4, n5 - 1, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x52(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2 - 1, n3, n4, n5 - 1, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x53(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3 - 1, n4, n5 - 1, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x54(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4 - 1, n5 - 1, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+          + DerDet5x55(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(n1, n2, n3, n4, n5 - 2, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
 
     if ((n1, n2, n3, n4, n5) == (1, 1, 1, 1, 1)) {
-      val b = d.numerator().cc()
-      if (cfRing.signum(b) < 0)
+      val d = momentums.dim + di
+      if (di < 0)
         return ring(1) / 2 / DerDet5x0(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) *
-          (ge4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * (d - 4) * _I5(1, 1, 1, 1, 1, d + 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
-            - DerDet5x1(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, d, s23, s34, s45, s25, s35, s24)
-            - DerDet5x2(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, d, s13, s34, s45, s15, s35, s14)
-            - DerDet5x3(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, d, s12, s24, s45, s15, s25, s14)
-            - DerDet5x4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, d, s12, s23, s35, s15, s25, s13)
-            - DerDet5x5(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, d, s12, s23, s34, s14, s24, s13))
+          (ge4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * (d - 4) * _I5(1, 1, 1, 1, 1, di + 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
+            - DerDet5x1(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, di, s23, s34, s45, s25, s35, s24)
+            - DerDet5x2(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, di, s13, s34, s45, s15, s35, s14)
+            - DerDet5x3(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, di, s12, s24, s45, s15, s25, s14)
+            - DerDet5x4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, di, s12, s23, s35, s15, s25, s13)
+            - DerDet5x5(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, di, s12, s23, s34, s14, s24, s13))
 
-      if (cfRing.signum(b) > 0)
+      if (di > 0)
         return ring(1) / (d - 6) / ge4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) *
-          (DerDet5x0(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(1, 1, 1, 1, 1, d - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * 2
-            + DerDet5x1(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, d - 2, s23, s34, s45, s25, s35, s24)
-            + DerDet5x2(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, d - 2, s13, s34, s45, s15, s35, s14)
-            + DerDet5x3(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, d - 2, s12, s24, s45, s15, s25, s14)
-            + DerDet5x4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, d - 2, s12, s23, s35, s15, s25, s13)
-            + DerDet5x5(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, d - 2, s12, s23, s34, s14, s24, s13))
+          (DerDet5x0(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I5(1, 1, 1, 1, 1, di - 2, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * 2
+            + DerDet5x1(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, di - 2, s23, s34, s45, s25, s35, s24)
+            + DerDet5x2(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, di - 2, s13, s34, s45, s15, s35, s14)
+            + DerDet5x3(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, di - 2, s12, s24, s45, s15, s25, s14)
+            + DerDet5x4(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, di - 2, s12, s23, s35, s15, s25, s13)
+            + DerDet5x5(s12, s23, s34, s45, s15, s13, s14, s24, s25, s35) * _I4(1, 1, 1, 1, di - 2, s12, s23, s34, s14, s24, s13))
     }
 
     IntegralVal(iDef)
   }
 
   /** Computes 4-point massless integral, first looking into a cache */
-  def I4(n1: Int, n2: Int, n3: Int, n4: Int, d: Expr,
+  def I4(n1: Int, n2: Int, n3: Int, n4: Int, di: Int,
          s12: Expr, s23: Expr, s34: Expr, s14: Expr, s24: Expr, s13: Expr,
          factorized: Boolean = false)
   : Either[IntegralVal[Expr], FactorizedIntegralVal[Expr]] = {
     // integral definition
+    val d = momentums.dim + di
     val iDef = IntegralDef(fourPointDef, Seq(n1, n2, n3, n4), Seq(d, s12, s23, s34, s14, s24, s13))
     // get from cache or compute from scratch
-    getOrCompute(iDef, () => __I4(iDef, n1, n2, n3, n4, d, s12, s23, s34, s14, s24, s13), factorized)
+    getOrCompute(iDef, () => __I4(iDef, n1, n2, n3, n4, di, s12, s23, s34, s14, s24, s13), factorized)
   }
 
   /** Computes 4-point massless integral, first looking into a cache */
   private
-  def _I4(n1: Int, n2: Int, n3: Int, n4: Int, d: Expr,
+  def _I4(n1: Int, n2: Int, n3: Int, n4: Int, di: Int,
           s12: Expr, s23: Expr, s34: Expr, s14: Expr, s24: Expr, s13: Expr)
   : IntegralVal[Expr] =
-    I4(n1, n2, n3, n4, d, s12, s23, s34, s14, s24, s13, factorized = false).left.get
+    I4(n1, n2, n3, n4, di, s12, s23, s34, s14, s24, s13, factorized = false).left.get
 
   /** actual calculation of 4-point massless integral */
   private
   def __I4(iDef: IntegralDef[Expr],
-           n1: Int, n2: Int, n3: Int, n4: Int, d: Expr,
+           n1: Int, n2: Int, n3: Int, n4: Int, di: Int,
            s12: Expr, s23: Expr, s34: Expr, s14: Expr, s24: Expr, s13: Expr): IntegralVal[Expr] = {
 
     assertInput(s12, s23, s34, s14, s24, s34, s14, s24, s13)
 
     if (n1 == 0)
-      return _I3(n2, n3, n4, d, s34, s24, s23)
+      return _I3(n2, n3, n4, di, s34, s24, s23)
 
     if (n2 == 0)
-      return _I3(n1, n3, n4, d, s34, s14, s13)
+      return _I3(n1, n3, n4, di, s34, s14, s13)
 
     if (n3 == 0)
-      return _I3(n1, n2, n4, d, s24, s14, s12)
+      return _I3(n1, n2, n4, di, s24, s14, s12)
 
     if (n4 == 0)
-      return _I3(n1, n2, n3, d, s23, s13, s12)
-
+      return _I3(n1, n2, n3, di, s23, s13, s12)
 
     if (n1 > 1)
       return ring(1) / ge3(s12, s23, s34, s14, s24, s13) / (n1 - 1) *
-        (DerDet4x1(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2, n3, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x11(s12, s23, s34, s14, s24, s13) * _I4(n1 - 2, n2, n3, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x12(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2 - 1, n3, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x13(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2, n3 - 1, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x14(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2, n3, n4 - 1, d - 2, s12, s23, s34, s14, s24, s13))
+        (DerDet4x1(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2, n3, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x11(s12, s23, s34, s14, s24, s13) * _I4(n1 - 2, n2, n3, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x12(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2 - 1, n3, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x13(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2, n3 - 1, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x14(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2, n3, n4 - 1, di - 2, s12, s23, s34, s14, s24, s13))
 
     if (n2 > 1)
       return ring(1) / ge3(s12, s23, s34, s14, s24, s13) / (n2 - 1) *
-        (DerDet4x2(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 1, n3, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x21(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2 - 1, n3, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x22(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 2, n3, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x23(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 1, n3 - 1, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x24(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 1, n3, n4 - 1, d - 2, s12, s23, s34, s14, s24, s13))
+        (DerDet4x2(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 1, n3, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x21(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2 - 1, n3, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x22(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 2, n3, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x23(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 1, n3 - 1, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x24(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 1, n3, n4 - 1, di - 2, s12, s23, s34, s14, s24, s13))
 
     if (n3 > 1)
       return ring(1) / ge3(s12, s23, s34, s14, s24, s13) / (n3 - 1) *
-        (DerDet4x3(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3 - 1, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x31(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2, n3 - 1, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x32(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 1, n3 - 1, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x33(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3 - 2, n4, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x34(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3 - 1, n4 - 1, d - 2, s12, s23, s34, s14, s24, s13))
+        (DerDet4x3(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3 - 1, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x31(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2, n3 - 1, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x32(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 1, n3 - 1, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x33(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3 - 2, n4, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x34(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3 - 1, n4 - 1, di - 2, s12, s23, s34, s14, s24, s13))
 
     if (n4 > 1)
       return ring(1) / ge3(s12, s23, s34, s14, s24, s13) / (n4 - 1) *
-        (DerDet4x4(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3, n4 - 1, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x41(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2, n3, n4 - 1, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x42(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 1, n3, n4 - 1, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x43(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3 - 1, n4 - 1, d - 2, s12, s23, s34, s14, s24, s13)
-          + DerDet4x44(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3, n4 - 2, d - 2, s12, s23, s34, s14, s24, s13))
+        (DerDet4x4(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3, n4 - 1, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x41(s12, s23, s34, s14, s24, s13) * _I4(n1 - 1, n2, n3, n4 - 1, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x42(s12, s23, s34, s14, s24, s13) * _I4(n1, n2 - 1, n3, n4 - 1, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x43(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3 - 1, n4 - 1, di - 2, s12, s23, s34, s14, s24, s13)
+          + DerDet4x44(s12, s23, s34, s14, s24, s13) * _I4(n1, n2, n3, n4 - 2, di - 2, s12, s23, s34, s14, s24, s13))
 
 
     if ((n1, n2, n3, n4) == (1, 1, 1, 1)) {
-      val b = d.numerator().cc()
-      if (cfRing.signum(b) < 0)
+      val d = momentums.dim + di
+      if (di < 0)
         return ring(1) / 2 / DerDet4x0(s12, s23, s34, s14, s24, s13) *
-          (ge3(s12, s23, s34, s14, s24, s13) * (d - 3) * _I4(1, 1, 1, 1, d + 2, s12, s23, s34, s14, s24, s13)
-            - DerDet4x1(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, d, s34, s24, s23)
-            - DerDet4x2(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, d, s34, s14, s13)
-            - DerDet4x3(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, d, s24, s14, s12)
-            - DerDet4x4(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, d, s23, s13, s12))
+          (ge3(s12, s23, s34, s14, s24, s13) * (d - 3) * _I4(1, 1, 1, 1, di + 2, s12, s23, s34, s14, s24, s13)
+            - DerDet4x1(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, di, s34, s24, s23)
+            - DerDet4x2(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, di, s34, s14, s13)
+            - DerDet4x3(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, di, s24, s14, s12)
+            - DerDet4x4(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, di, s23, s13, s12))
 
-      if (cfRing.signum(b) > 0)
+      if (di > 0)
         return ring(1) / (d - 5) / ge3(s12, s23, s34, s14, s24, s13) *
-          (DerDet4x0(s12, s23, s34, s14, s24, s13) * _I4(1, 1, 1, 1, d - 2, s12, s23, s34, s14, s24, s13) * 2
-            + DerDet4x1(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, d - 2, s34, s24, s23)
-            + DerDet4x2(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, d - 2, s34, s14, s13)
-            + DerDet4x3(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, d - 2, s24, s14, s12)
-            + DerDet4x4(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, d - 2, s23, s13, s12))
+          (DerDet4x0(s12, s23, s34, s14, s24, s13) * _I4(1, 1, 1, 1, di - 2, s12, s23, s34, s14, s24, s13) * 2
+            + DerDet4x1(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, di - 2, s34, s24, s23)
+            + DerDet4x2(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, di - 2, s34, s14, s13)
+            + DerDet4x3(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, di - 2, s24, s14, s12)
+            + DerDet4x4(s12, s23, s34, s14, s24, s13) * _I3(1, 1, 1, di - 2, s23, s13, s12))
     }
 
     IntegralVal(iDef)
   }
 
   /** Computes 3-point massless integral, first looking into a cache */
-  def I3(n1: Int, n2: Int, n3: Int, d: Expr, s23: Expr, s13: Expr, s12: Expr, factorized: Boolean = false)
+  def I3(n1: Int, n2: Int, n3: Int, di: Int, s23: Expr, s13: Expr, s12: Expr, factorized: Boolean = false)
   : Either[IntegralVal[Expr], FactorizedIntegralVal[Expr]] = {
     // integral definition
+    val d = momentums.dim + di
     val iDef = IntegralDef(threePointDef, Seq(n1, n2, n3), Seq(d, s23, s13, s12))
     // get from cache or compute from scratch
-    getOrCompute(iDef, () => __I3(iDef, n1, n2, n3, d, s23, s13, s12), factorized)
+    getOrCompute(iDef, () => __I3(iDef, n1, n2, n3, di, s23, s13, s12), factorized)
   }
 
   /** Computes 3-point massless integral, first looking into a cache */
   private
-  def _I3(n1: Int, n2: Int, n3: Int, d: Expr, s23: Expr, s13: Expr, s12: Expr)
+  def _I3(n1: Int, n2: Int, n3: Int, di: Int, s23: Expr, s13: Expr, s12: Expr)
   : IntegralVal[Expr] =
-    I3(n1, n2, n3, d, s23, s13, s12, factorized = false).left.get
+    I3(n1, n2, n3, di, s23, s13, s12, factorized = false).left.get
 
   /** actual calculation of 3-point massless integral */
   private
-  def __I3(iDef: IntegralDef[Expr], n1: Int, n2: Int, n3: Int, d: Expr, s23: Expr, s13: Expr, s12: Expr): IntegralVal[Expr] = {
+  def __I3(iDef: IntegralDef[Expr], n1: Int, n2: Int, n3: Int, di: Int, s23: Expr, s13: Expr, s12: Expr): IntegralVal[Expr] = {
     assertInput(s23, s13, s12)
 
     if (n1 == 0)
-      return I2(n2, n3, d, s23)
+      return I2(n2, n3, di, s23)
 
     if (n2 == 0)
-      return I2(n1, n3, d, s13)
+      return I2(n1, n3, di, s13)
 
     if (n3 == 0)
-      return I2(n1, n2, d, s12)
+      return I2(n1, n2, di, s12)
 
+    val d = momentums.dim + di
     if (ring.isZero(s12) && !(ring.isZero(s23) && ring.isZero(s13)))
-      return ring(-2) * (d - 3) / (d - 4) / (s23 - s13) * (I2(1, 1, d, s23) - I2(1, 1, d, s13))
+      return ring(-2) * (d - 3) / (d - 4) / (s23 - s13) * (I2(1, 1, di, s23) - I2(1, 1, di, s13))
 
     if (ring.isZero(s13) && !(ring.isZero(s23) && ring.isZero(s12)))
-      return ring(-2) * (d - 3) / (d - 4) / (s23 - s12) * (I2(1, 1, d, s23) - I2(1, 1, d, s12))
+      return ring(-2) * (d - 3) / (d - 4) / (s23 - s12) * (I2(1, 1, di, s23) - I2(1, 1, di, s12))
 
     if (ring.isZero(s23) && !(ring.isZero(s13) && ring.isZero(s12)))
-      return ring(-2) * (d - 3) / (d - 4) / (s13 - s12) * (I2(1, 1, d, s13) - I2(1, 1, d, s12))
+      return ring(-2) * (d - 3) / (d - 4) / (s13 - s12) * (I2(1, 1, di, s13) - I2(1, 1, di, s12))
 
 
     if (n1 > 1)
       return ring(1) / ge2(s23, s13, s12) / (n1 - 1) *
-        (DerDet3x1(s23, s13, s12) * _I3(n1 - 1, n2, n3, d - 2, s23, s13, s12)
-          + DerDet3x11(s23, s13, s12) * _I3(n1 - 2, n2, n3, d - 2, s23, s13, s12)
-          + DerDet3x12(s23, s13, s12) * _I3(n1 - 1, n2 - 1, n3, d - 2, s23, s13, s12)
-          + DerDet3x13(s23, s13, s12) * _I3(n1 - 1, n2, n3 - 1, d - 2, s23, s13, s12))
+        (DerDet3x1(s23, s13, s12) * _I3(n1 - 1, n2, n3, di - 2, s23, s13, s12)
+          + DerDet3x11(s23, s13, s12) * _I3(n1 - 2, n2, n3, di - 2, s23, s13, s12)
+          + DerDet3x12(s23, s13, s12) * _I3(n1 - 1, n2 - 1, n3, di - 2, s23, s13, s12)
+          + DerDet3x13(s23, s13, s12) * _I3(n1 - 1, n2, n3 - 1, di - 2, s23, s13, s12))
 
     if (n2 > 1)
       return ring(1) / ge2(s23, s13, s12) / (n2 - 1) * (DerDet3x2(s23, s13, s12)
-        * _I3(n1, n2 - 1, n3, d - 2, s23, s13, s12)
-        + DerDet3x21(s23, s13, s12) * _I3(n1 - 1, n2 - 1, n3, d - 2, s23, s13, s12)
-        + DerDet3x22(s23, s13, s12) * _I3(n1, n2 - 2, n3, d - 2, s23, s13, s12)
-        + DerDet3x23(s23, s13, s12) * _I3(n1, n2 - 1, n3 - 1, d - 2, s23, s13, s12))
+        * _I3(n1, n2 - 1, n3, di - 2, s23, s13, s12)
+        + DerDet3x21(s23, s13, s12) * _I3(n1 - 1, n2 - 1, n3, di - 2, s23, s13, s12)
+        + DerDet3x22(s23, s13, s12) * _I3(n1, n2 - 2, n3, di - 2, s23, s13, s12)
+        + DerDet3x23(s23, s13, s12) * _I3(n1, n2 - 1, n3 - 1, di - 2, s23, s13, s12))
 
 
     if (n3 > 1)
       return ring(1) / ge2(s23, s13, s12) / (n3 - 1) *
-        (DerDet3x3(s23, s13, s12) * _I3(n1, n2, n3 - 1, d - 2, s23, s13, s12)
-          + DerDet3x31(s23, s13, s12) * _I3(n1 - 1, n2, n3 - 1, d - 2, s23, s13, s12)
-          + DerDet3x32(s23, s13, s12) * _I3(n1, n2 - 1, n3 - 1, d - 2, s23, s13, s12)
-          + DerDet3x33(s23, s13, s12) * _I3(n1, n2, n3 - 2, d - 2, s23, s13, s12))
+        (DerDet3x3(s23, s13, s12) * _I3(n1, n2, n3 - 1, di - 2, s23, s13, s12)
+          + DerDet3x31(s23, s13, s12) * _I3(n1 - 1, n2, n3 - 1, di - 2, s23, s13, s12)
+          + DerDet3x32(s23, s13, s12) * _I3(n1, n2 - 1, n3 - 1, di - 2, s23, s13, s12)
+          + DerDet3x33(s23, s13, s12) * _I3(n1, n2, n3 - 2, di - 2, s23, s13, s12))
 
     if ((n1, n2, n3) == (1, 1, 1)) {
-      val b = d.numerator().cc()
-      if (cfRing.signum(b) < 0)
+      if (di < 0)
         return ring(1) / 2 / DerDet3x0(s23, s13, s12) *
-          ((d - 2) * ge2(s23, s13, s12) * _I3(1, 1, 1, d + 2, s23, s13, s12)
-            - DerDet3x1(s23, s13, s12) * I2(1, 1, d, s23)
-            - DerDet3x2(s23, s13, s12) * I2(1, 1, d, s13)
-            - DerDet3x3(s23, s13, s12) * I2(1, 1, d, s12))
+          ((d - 2) * ge2(s23, s13, s12) * _I3(1, 1, 1, di + 2, s23, s13, s12)
+            - DerDet3x1(s23, s13, s12) * I2(1, 1, di, s23)
+            - DerDet3x2(s23, s13, s12) * I2(1, 1, di, s13)
+            - DerDet3x3(s23, s13, s12) * I2(1, 1, di, s12))
 
-      if (cfRing.signum(b) > 0)
+      if (di > 0)
         return ring(1) / (d - 4) / ge2(s23, s13, s12) * (
-          DerDet3x0(s23, s13, s12) * _I3(1, 1, 1, d - 2, s23, s13, s12) * 2
-            + DerDet3x1(s23, s13, s12) * I2(1, 1, d - 2, s23)
-            + DerDet3x2(s23, s13, s12) * I2(1, 1, d - 2, s13)
-            + DerDet3x3(s23, s13, s12) * I2(1, 1, d - 2, s12))
+          DerDet3x0(s23, s13, s12) * _I3(1, 1, 1, di - 2, s23, s13, s12) * 2
+            + DerDet3x1(s23, s13, s12) * I2(1, 1, di - 2, s23)
+            + DerDet3x2(s23, s13, s12) * I2(1, 1, di - 2, s13)
+            + DerDet3x3(s23, s13, s12) * I2(1, 1, di - 2, s12))
     }
 
     IntegralVal(iDef)
   }
 
   /** Two-point integral */
-  def I2(n1: Int, n2: Int, de: Expr, qq: Expr): IntegralVal[Expr] = {
+  def I2(n1: Int, n2: Int, di: Int, qq: Expr): IntegralVal[Expr] = {
     assertInput(qq)
 
     if (qq.isZero || n1 <= 0 || n2 <= 0)
       return IntegralVal.zero
     val d = momentums.dim
-    val b = (de - d).toString.toInt
-    ring(-1).pow(b / 2) * qq.pow(b / 2 + 2 - n1 - n2) *
-      Pochhammer(d / 2 - 1, 1 + b / 2 - n1) *
-      Pochhammer(d / 2 - 1, 1 + b / 2 - n2) *
-      Pochhammer(2 - d / 2, n1 + n2 - b / 2 - 2) /
-      Pochhammer(d - 2, 2 + b - n1 - n2) /
+    ring(-1).pow(di / 2) * qq.pow(di / 2 + 2 - n1 - n2) *
+      Pochhammer(d / 2 - 1, 1 + di / 2 - n1) *
+      Pochhammer(d / 2 - 1, 1 + di / 2 - n2) *
+      Pochhammer(2 - d / 2, n1 + n2 - di / 2 - 2) /
+      Pochhammer(d - 2, 2 + di - n1 - n2) /
       ring.factorial(n1 - 1) /
       ring.factorial(n2 - 1) *
       IntegralVal(twoPointDef, Seq(1, 1), Seq(d, qq))

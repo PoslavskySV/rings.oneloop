@@ -180,11 +180,11 @@ object Main {
     try {
       val integral: Either[IntegralVal[calculator.Expr], FactorizedIntegralVal[calculator.Expr]] = conf.subcommands match {
         case (tp@conf.threePoint) :: Nil =>
-          calculator.I3(tp.n1(), tp.n2(), tp.n3(), dim + tp.di(), s23, s13, s12, tp.factorize())
+          calculator.I3(tp.n1(), tp.n2(), tp.n3(), tp.di(), s23, s13, s12, tp.factorize())
         case (fp@conf.fourPoint) :: Nil =>
-          calculator.I4(fp.n1(), fp.n2(), fp.n3(), fp.n4(), dim + fp.di(), s12, s23, s34, s14, s24, s13, fp.factorize())
+          calculator.I4(fp.n1(), fp.n2(), fp.n3(), fp.n4(), fp.di(), s12, s23, s34, s14, s24, s13, fp.factorize())
         case (fp@conf.fivePoint) :: Nil =>
-          calculator.I5(fp.n1(), fp.n2(), fp.n3(), fp.n4(), fp.n5(), dim + fp.di(), s12, s23, s34, s45, s15, s13, s14, s24, s25, s35, fp.factorize())
+          calculator.I5(fp.n1(), fp.n2(), fp.n3(), fp.n4(), fp.n5(), fp.di(), s12, s23, s34, s45, s15, s13, s14, s24, s25, s35, fp.factorize())
         case _ =>
           helpAndReturn()
           null

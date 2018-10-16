@@ -4,7 +4,6 @@ import cc.redberry.rings.scaladsl.{IntZ, Ring}
 import cc.redberry.rings.scaladsl._
 
 /** 3 x 3 determinants */
-@SerialVersionUID(1L)
 class Determinants3x3[E](cfRing: Ring[E]) extends Serializable {
   private val ring = MultivariateRing(cfRing, Array("p23", "p13", "p12"))
   private type Expr = ring.ElementType

@@ -4,7 +4,6 @@ import cc.redberry.rings.scaladsl.Ring
 import cc.redberry.rings.scaladsl._
 
 /** 4 x 4 determinants */
-@SerialVersionUID(1L)
 class Determinants4x4[E](cfRing: Ring[E]) extends Serializable {
   private val ring = MultivariateRing(cfRing, Array("p12", "p23", "p34", "p14", "p24", "p13"))
   private type Expr = ring.ElementType
@@ -73,7 +72,7 @@ class Determinants4x4[E](cfRing: Ring[E]) extends Serializable {
 
   def ge3(p12: Rat, p23: Rat, p34: Rat, p14: Rat, p24: Rat, p13: Rat): Rat = composition(obj_ge3, p12, p23, p34, p14, p24, p13)
 
-  lazy val det3_methods = new Determinants3x3(cfRing)
+  lazy val det3_methods = new Determinants3x3[E](cfRing)
 
   import det3_methods._
 

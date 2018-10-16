@@ -7,7 +7,6 @@ import scala.collection.immutable.Seq
 import cc.redberry.rings.scaladsl._
 
 /** 5 x 5 determinants */
-@SerialVersionUID(1L)
 class Determinants5x5[E](cfRing: Ring[E]) extends Serializable {
   private val ring = MultivariateRing(cfRing, Array("p12", "p23", "p34", "p45", "p15", "p13", "p14", "p24", "p25", "p35"))
   private type Expr = ring.ElementType

@@ -115,7 +115,7 @@ object Main {
     * @param arguments
     */
   class GlobalConf(arguments: Seq[String]) extends ScallopConf(arguments) {
-    version("fivepoint v1.0")
+    version(s"$ProgramName v1.0")
     banner(
       s"""
          |Usage: $ProgramName [i3|i4|i5] [--d <shift>] --n1 <n1> --n2 <n2>  ...

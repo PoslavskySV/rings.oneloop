@@ -10,7 +10,6 @@ import org.junit.Test
   *
   */
 class IntegralsDBTest {
-
   @Test
   def test1: Unit = {
     val file = File.createTempFile("prefix", "suffix")
@@ -34,15 +33,15 @@ class IntegralsDBTest {
     val e3 = CachedIntegralVal(f3, IntegralVal(f3) + IntegralVal(f1))
 
     val cache = new IntegralsDB(file)
-    cache.put(if1, e1, ring)
-    cache.put(if2, e2, ring)
-    cache.put(if3, e3, ring)
+    cache.putRawIntegral(if1, e1, ring)
+    cache.putRawIntegral(if2, e2, ring)
+    cache.putRawIntegral(if3, e3, ring)
     cache.close()
 
     val recache = new IntegralsDB(file)
-    assert(recache.get(if1, ring) == e1)
-    assert(recache.get(if2, ring) == e2)
-    assert(recache.get(if3, ring) == e3)
+    assert(recache.getRawIntegral(if1, ring) == e1)
+    assert(recache.getRawIntegral(if2, ring) == e2)
+    assert(recache.getRawIntegral(if3, ring) == e3)
     recache.close()
   }
 }

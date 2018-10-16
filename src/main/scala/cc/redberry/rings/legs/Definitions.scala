@@ -1,11 +1,30 @@
 package cc.redberry.rings.sym
 
+import java.io.PrintStream
+
 import scala.language.implicitConversions
 
 object Definitions {
 
   import cc.redberry.rings.scaladsl._
   import cc.redberry.rings.scaladsl.syntax._
+
+  object PrintFormat extends Enumeration {
+    type PrintFormat = Value
+    val MMA, Maple, FORM = Value
+
+    def byName(s: String): Option[Value] = values.find(_.toString.equalsIgnoreCase(s))
+  }
+
+  import PrintFormat._
+
+  /**
+    * Helper data for output printing
+    *
+    * @param fmt        output format
+    * @param tablePrint whether to print in table (multiline) form
+    */
+  case class PrintFormatter(fmt: PrintFormat, tablePrint: Boolean)
 
   /**
     * Generic integral definition I[ {n1, n2, ...} , {s12, s13, ...}]
@@ -17,9 +36,19 @@ object Definitions {
   case class IntegralDef[E](id: String, indices: Seq[Int], args: Seq[E]) {
     override def toString: String = id + "[" + indices.mkString(",") + ", " + args.mkString(", ") + "]"
 
-    def stringify()(implicit ring: Ring[E]): String = id + "[" + indices.mkString(",") + ", " + args.map(ring.stringify).mkString(",") + "]"
+    def stringify()(implicit ring: Ring[E]): String = id + "[" + indices.mkString(",") + "," + args.map(ring.stringify).mkString(",") + "]"
 
     def map(func: E => E): IntegralDef[E] = IntegralDef(id, indices, args.map(func))
+
+    /** Prints expression to a stream */
+    def print(stream: PrintStream, formatter: PrintFormatter)(implicit ring: Ring[E]): Unit = {
+      stream.print(id)
+      stream.print(formatter.fmt match { case MMA => "[" case Maple | FORM => "(" })
+      stream.print(indices.mkString(","))
+      stream.print(",")
+      stream.print(args.map(ring.stringify).mkString(","))
+      stream.print(formatter.fmt match { case MMA => "]" case Maple | FORM => ")" })
+    }
   }
 
   /** Sum of integrals with polynomial coefficients */
@@ -51,7 +80,28 @@ object Definitions {
 
     def stringify()(implicit ring: Ring[E]): String = terms.map { case (k, v) =>
       "(" + ring.stringify(v) + ") * " + k.stringify()
-    }.mkString("+")
+    }.mkString(" + ")
+
+    /** Prints expression to a stream */
+    def print(stream: PrintStream, formatter: PrintFormatter)(implicit ring: Ring[E]): Unit = {
+      terms.toSeq.foldLeft(0) { case (i, (integral, coefficient)) =>
+        if (i != 0 || formatter.tablePrint)
+          stream.print(" + ")
+
+        integral.print(stream, formatter)
+        stream.print(" * ")
+        if (formatter.fmt == PrintFormat.FORM)
+          stream.print("factor")
+
+        stream.print("(")
+        stream.print(ring.stringify(coefficient))
+        stream.print(")")
+
+        if (formatter.tablePrint)
+          stream.print("\n")
+        i + 1
+      }
+    }
   }
 
   object IntegralVal {
@@ -69,4 +119,43 @@ object Definitions {
   }
 
   implicit def ringElementOps[E](el: E)(implicit ring: Ring[E]): RingElementOps[E] = RingElementOps(el)
+
+  /** Sum of integrals with polynomial coefficients */
+  case class FactorizedIntegralVal[E](terms: Map[IntegralDef[E], Seq[(E, Int)]]) {
+    def map(func: E => E): FactorizedIntegralVal[E] = {
+      FactorizedIntegralVal(terms.map { case (f, seq) => (f.map(func), seq.map(e => (func(e._1), e._2))) })
+    }
+
+    def print(stream: PrintStream, of: PrintFormatter)(implicit ring: Ring[E]): Unit = {
+      terms.toSeq.foldLeft(0) { case (i, (integral, coefficient)) =>
+        if (i != 0 || of.tablePrint)
+          stream.print(" + ")
+        integral.print(stream, of)
+        stream.print(" * ")
+
+        coefficient.foldLeft(0) { case (j, (factor, exp)) =>
+          if (j != 0)
+            stream.print(" * ")
+          if (of.fmt == PrintFormat.FORM)
+            stream.print("factor")
+          stream.print("(")
+          stream.print(ring.stringify(factor))
+          stream.print(")")
+          if (exp != 1)
+            stream.print(s" ^ $exp")
+          j + 1
+        }
+
+        if (of.tablePrint)
+          stream.print("\n")
+        i + 1
+      }
+    }
+  }
+
+  object FactorizedIntegralVal {
+    def Factor[E](iVal: IntegralVal[E])(implicit ring: Ring[E]) = {
+      FactorizedIntegralVal(iVal.terms.map { case (k, v) => (k, ring.factor(v).toSeq) })
+    }
+  }
 }

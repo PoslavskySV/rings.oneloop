@@ -4,15 +4,18 @@ import cc.redberry.rings.scaladsl.Ring;
 import cc.redberry.rings.util.ZipUtil;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
+import org.mapdb.Serializer;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /** Off-heap global cache for calculated integrals. */
 public final class IntegralsDB implements Closeable {
+    private final File dbFile;
     /** database instance */
     private final DB db;
 
@@ -42,35 +45,73 @@ public final class IntegralsDB implements Closeable {
             db = mkDB(file);
         }
         this.db = db;
+        this.dbFile = file;
     }
 
-    /** ring -> off-heap map */
-    private Map<Ring, Map<IntegralSignature, CachedIntegralVal>> registeredRings = new HashMap<>();
+    enum OffHeapMapType {rawIntegrals, simplifiedIntegrals}
 
     @SuppressWarnings("unchecked")
-    private Map<IntegralSignature, CachedIntegralVal> getMap(Ring ring) {
-        Map<IntegralSignature, CachedIntegralVal> map = registeredRings.get(ring);
+    private <T> Map<IntegralSignature, T> getMap(OffHeapMapType mt,
+                                                 Map<Ring, Map<IntegralSignature, T>> idb,
+                                                 Ring ring,
+                                                 Supplier<Serializer> serializer) {
+        Map<IntegralSignature, T> map = idb.get(ring);
         if (map == null) {
             // use _theRing_ for table name:
             //  - it is smaller in size (doesn't hold quite heavy coder)
             //  - it is more universal
-            String mapKey = ZipUtil.compress(ring.theRing());
+            String mapKey = mt.toString() + ZipUtil.compress(ring.theRing());
             map = db.hashMap(mapKey)
                     .keySerializer(new IntegralSignatureSerializer<>(ring))
-                    .valueSerializer(new CachedIntegralValSerializer<>(ring))
+                    .valueSerializer(serializer.get())
                     .createOrOpen();
-            registeredRings.put(ring, map);
+            idb.put(ring, map);
         }
         return map;
     }
 
+    /** ring -> off-heap map */
+    private Map<Ring, Map<IntegralSignature, CachedIntegralVal>> rawIntegralsDB = new HashMap<>();
+    private Map<Ring, Map<IntegralSignature, CachedFactorizedIntegralVal>> simplifiedIntegralsDB = new HashMap<>();
+
     @SuppressWarnings("unchecked")
-    public <E> CachedIntegralVal<E> get(IntegralSignature<E> key, Ring<E> ring) {
-        return getMap(ring).get(key);
+    private Map<IntegralSignature, CachedIntegralVal> getRawIntegralsMap(Ring ring) {
+        return getMap(OffHeapMapType.rawIntegrals, rawIntegralsDB, ring, () -> new CachedIntegralValSerializer<>(ring));
     }
 
-    public <E> void put(IntegralSignature<E> key, CachedIntegralVal<E> value, Ring<E> ring) {
-        getMap(ring).put(key, value);
+    @SuppressWarnings("unchecked")
+    public <E> CachedIntegralVal<E> getRawIntegral(IntegralSignature<E> key, Ring<E> ring) {
+        try {
+            return getRawIntegralsMap(ring).get(key);
+        } catch (Throwable t) {
+            System.err.println("ERR: broken database, making new; restart the calculation. Error message: " + t.getMessage());
+            dbFile.delete();
+            throw t;
+        }
+    }
+
+    public <E> void putRawIntegral(IntegralSignature<E> key, CachedIntegralVal<E> value, Ring<E> ring) {
+        getRawIntegralsMap(ring).put(key, value);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<IntegralSignature, CachedFactorizedIntegralVal> getSimlpifiedIntegralsMap(Ring ring) {
+        return getMap(OffHeapMapType.simplifiedIntegrals, simplifiedIntegralsDB, ring, () -> new CachedFactorizedIntegralValSerializer(ring));
+    }
+
+    @SuppressWarnings("unchecked")
+    public <E> CachedFactorizedIntegralVal<E> getSimplifiedIntegral(IntegralSignature<E> key, Ring<E> ring) {
+        try {
+            return getSimlpifiedIntegralsMap(ring).get(key);
+        } catch (Throwable t) {
+            System.err.println("ERR: broken database, making new; restart the calculation. Error message: " + t.getMessage());
+            dbFile.delete();
+            throw t;
+        }
+    }
+
+    public <E> void putSimplifiedIntegral(IntegralSignature<E> key, CachedFactorizedIntegralVal<E> value, Ring<E> ring) {
+        getSimlpifiedIntegralsMap(ring).put(key, value);
     }
 
     @Override

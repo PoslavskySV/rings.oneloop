@@ -1,7 +1,7 @@
 package cc.redberry.rings.legs
 
 import cc.redberry.rings.scaladsl.Ring
-import cc.redberry.rings.sym.Definitions.{IntegralDef, IntegralVal}
+import cc.redberry.rings.sym.Definitions.{FactorizedIntegralVal, IntegralDef, IntegralVal}
 import org.mapdb.{DataInput2, DataOutput2, Serializer}
 
 
@@ -57,6 +57,29 @@ final class CachedIntegralValSerializer[E](ring: Ring[E])
   }
 }
 
+/** Cached value of integral */
+case class CachedFactorizedIntegralVal[E](iDef: IntegralDef[E],
+                                          iFactorVals: FactorizedIntegralVal[E])
+
+/** Integral signature serialization */
+final class CachedFactorizedIntegralValSerializer[E](ring: Ring[E])
+  extends Serializer[CachedFactorizedIntegralVal[E]] {
+
+  val valSerializer = new FactorizedIntegralValSerializer[E](ring)
+  val defSerializer = valSerializer.defSerializer
+
+  override def serialize(out: DataOutput2, value: CachedFactorizedIntegralVal[E]): Unit = {
+    defSerializer.serialize(out, value.iDef)
+    valSerializer.serialize(out, value.iFactorVals)
+  }
+
+  override def deserialize(input: DataInput2, available: Int): CachedFactorizedIntegralVal[E] = {
+    val iDef = defSerializer.deserialize(input, available)
+    val iFactorVals = valSerializer.deserialize(input, available)
+    CachedFactorizedIntegralVal(iDef, iFactorVals)
+  }
+}
+
 /** Serializer for IntegralDef */
 final class IntegralDefSerializer[E](ring: Ring[E])
   extends Serializer[IntegralDef[E]] {
@@ -101,5 +124,40 @@ final class IntegralValSerializer[E](ring: Ring[E])
       (k, v)
     }).toMap
     IntegralVal(terms)
+  }
+}
+
+
+/** Serializer for IntegralValue */
+final class FactorizedIntegralValSerializer[E](ring: Ring[E])
+  extends Serializer[FactorizedIntegralVal[E]] {
+
+  val defSerializer = new IntegralDefSerializer[E](ring)
+
+  override def serialize(out: DataOutput2, value: FactorizedIntegralVal[E]): Unit = {
+    out.writeInt(value.terms.size)
+    value.terms.foreach { case (k, v) =>
+      defSerializer.serialize(out, k)
+      out.writeInt(v.size)
+      v.foreach { case (f, e) =>
+        out.writeInt(e)
+        out.writeUTF(ring.stringify(f))
+      }
+    }
+  }
+
+  override def deserialize(in: DataInput2, available: Int): FactorizedIntegralVal[E] = {
+    val len = in.readInt()
+    val terms = (0 until len).map(_ => {
+      val k = defSerializer.deserialize(in, available)
+      val iLen = in.readInt()
+      val seq = (0 until iLen).map(_ => {
+        val e = in.readInt()
+        val f = ring(in.readUTF())
+        (f, e)
+      })
+      (k, seq)
+    }).toMap
+    FactorizedIntegralVal(terms)
   }
 }

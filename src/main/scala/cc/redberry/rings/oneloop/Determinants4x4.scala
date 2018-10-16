@@ -1,4 +1,4 @@
-package cc.redberry.rings.legs
+package cc.redberry.rings.oneloop
 
 import cc.redberry.rings.scaladsl.{Ring, _}
 

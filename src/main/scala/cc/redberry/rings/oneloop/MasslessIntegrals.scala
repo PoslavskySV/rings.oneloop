@@ -1,8 +1,8 @@
-package cc.redberry.rings.legs
+package cc.redberry.rings.oneloop
 
 import java.io.Closeable
 
-import cc.redberry.rings.legs.Definitions._
+import cc.redberry.rings.oneloop.Definitions._
 import cc.redberry.rings.scaladsl.syntax._
 import cc.redberry.rings.scaladsl.{Ring, _}
 

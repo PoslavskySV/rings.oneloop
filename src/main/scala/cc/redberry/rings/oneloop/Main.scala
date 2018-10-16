@@ -1,17 +1,15 @@
-package cc.redberry.rings.legs
+package cc.redberry.rings.oneloop
 
 
-import cc.redberry.rings.legs.Definitions.{FactorizedIntegralVal, IntegralVal, PrintFormat, PrintFormatter}
+import cc.redberry.rings.oneloop.Definitions.{FactorizedIntegralVal, IntegralVal, PrintFormat, PrintFormatter}
 import cc.redberry.rings.scaladsl._
-import cc.redberry.rings.scaladsl.syntax._
 import org.rogach.scallop._
 
 /**
   *
   */
 object Main {
-
-  val ProgramName = "fivepoint"
+  val ProgramName = "oneloop"
 
   trait GenericOpts {
     this: ScallopConfBase =>

@@ -1,4 +1,4 @@
-package cc.redberry.rings.legs
+package cc.redberry.rings.oneloop
 
 import java.io.PrintStream
 

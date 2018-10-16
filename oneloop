@@ -123,7 +123,7 @@ fi
 
 jar=""
 
-for j in "$dir/integrals.jar"
+for j in "$dir/oneloop.jar"
 do
     if [[ -e "$j" ]];
     then

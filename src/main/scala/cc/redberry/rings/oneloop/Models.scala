@@ -1,6 +1,6 @@
-package cc.redberry.rings.legs
+package cc.redberry.rings.oneloop
 
-import cc.redberry.rings.legs.Definitions._
+import cc.redberry.rings.oneloop.Definitions._
 import cc.redberry.rings.scaladsl.Ring
 import org.mapdb.{DataInput2, DataOutput2, Serializer}
 

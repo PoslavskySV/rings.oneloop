@@ -1,8 +1,8 @@
-package cc.redberry.rings.legs
+package cc.redberry.rings.oneloop
 
 import java.io.File
 
-import cc.redberry.rings.legs.Definitions._
+import cc.redberry.rings.oneloop.Definitions._
 import cc.redberry.rings.scaladsl.{MultivariateRing, Rational, _}
 import org.junit.Test
 

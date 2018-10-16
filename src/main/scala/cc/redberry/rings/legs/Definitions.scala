@@ -5,6 +5,7 @@ import java.io.PrintStream
 import scala.language.implicitConversions
 
 object Definitions {
+
   import cc.redberry.rings.scaladsl._
   import cc.redberry.rings.scaladsl.syntax._
 

@@ -2,8 +2,8 @@ package cc.redberry.rings.legs
 
 import java.io.File
 
+import cc.redberry.rings.legs.Definitions._
 import cc.redberry.rings.scaladsl.{MultivariateRing, Rational, _}
-import cc.redberry.rings.sym.Definitions._
 import org.junit.Test
 
 /**

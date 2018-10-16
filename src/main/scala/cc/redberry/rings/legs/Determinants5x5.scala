@@ -1,10 +1,8 @@
-package cc.redberry.rings.sym
+package cc.redberry.rings.legs
 
-import cc.redberry.rings.scaladsl.Ring
+import cc.redberry.rings.scaladsl.{Ring, _}
 
 import scala.collection.immutable.Seq
-
-import cc.redberry.rings.scaladsl._
 
 /** 5 x 5 determinants */
 class Determinants5x5[E](cfRing: Ring[E]) extends Serializable {

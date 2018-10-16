@@ -1,14 +1,14 @@
-package cc.redberry.rings.sym
+package cc.redberry.rings.legs
 
 import java.io.Closeable
 
-import cc.redberry.rings.legs.{CachedFactorizedIntegralVal, CachedIntegralVal, IntegralSignature, IntegralsDB}
+import cc.redberry.rings.legs.Definitions._
 import cc.redberry.rings.scaladsl.syntax._
 import cc.redberry.rings.scaladsl.{Ring, _}
-import cc.redberry.rings.sym.Definitions._
 
 import scala.language.implicitConversions
 
+//[Term <: AMonomial[Term], Poly <: AMultivariatePolynomial[Term, Poly], E]
 
 /** Methods for reducing massless integrals */
 class MasslessIntegrals[E](cfRing: Ring[E],

@@ -1,10 +1,9 @@
 package cc.redberry.rings.legs
 
 
+import cc.redberry.rings.legs.Definitions.{FactorizedIntegralVal, IntegralVal, PrintFormat, PrintFormatter}
 import cc.redberry.rings.scaladsl._
 import cc.redberry.rings.scaladsl.syntax._
-import cc.redberry.rings.sym.Definitions.{FactorizedIntegralVal, IntegralVal, PrintFormat, PrintFormatter}
-import cc.redberry.rings.sym.MasslessIntegrals
 import org.rogach.scallop._
 
 /**
@@ -186,6 +185,9 @@ object Main {
           calculator.I4(fp.n1(), fp.n2(), fp.n3(), fp.n4(), dim + fp.di(), s12, s23, s34, s14, s24, s13, fp.factorize())
         case (fp@conf.fivePoint) :: Nil =>
           calculator.I5(fp.n1(), fp.n2(), fp.n3(), fp.n4(), fp.n5(), dim + fp.di(), s12, s23, s34, s45, s15, s13, s14, s24, s25, s35, fp.factorize())
+        case _ =>
+          helpAndReturn()
+          null
       }
 
       integral match {

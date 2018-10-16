@@ -1,7 +1,7 @@
 package cc.redberry.rings.legs
 
+import cc.redberry.rings.legs.Definitions._
 import cc.redberry.rings.scaladsl.Ring
-import cc.redberry.rings.sym.Definitions.{FactorizedIntegralVal, IntegralDef, IntegralVal}
 import org.mapdb.{DataInput2, DataOutput2, Serializer}
 
 

@@ -1,7 +1,6 @@
-package cc.redberry.rings.sym
+package cc.redberry.rings.legs
 
-import cc.redberry.rings.scaladsl.{IntZ, Ring}
-import cc.redberry.rings.scaladsl._
+import cc.redberry.rings.scaladsl.{Ring, _}
 
 /** 3 x 3 determinants */
 class Determinants3x3[E](cfRing: Ring[E]) extends Serializable {

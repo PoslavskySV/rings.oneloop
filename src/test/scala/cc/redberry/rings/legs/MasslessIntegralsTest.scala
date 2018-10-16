@@ -2,7 +2,6 @@ package cc.redberry.rings.legs
 
 import cc.redberry.rings.scaladsl._
 import cc.redberry.rings.scaladsl.syntax._
-import cc.redberry.rings.sym.MasslessIntegrals
 import org.junit.Test
 
 /**

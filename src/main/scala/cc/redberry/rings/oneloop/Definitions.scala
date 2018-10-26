@@ -51,6 +51,10 @@ object Definitions {
     }
   }
 
+  private
+  def normalize[E](terms: Map[IntegralDef[E], E])(implicit ring: Ring[E]) =
+    terms.filterNot(t => ring.isZero(t._2))
+
   /** Sum of integrals with polynomial coefficients */
   case class IntegralVal[E](terms: Map[IntegralDef[E], E]) {
     def +(oth: IntegralVal[E])(implicit ring: Ring[E]): IntegralVal[E] = {
@@ -58,14 +62,17 @@ object Definitions {
       import Scalaz._
 
       implicit val semigroup: Semigroup[E] = (f1, f2) => ring.add(f1, f2)
-      IntegralVal(terms |+| oth.terms)
+      IntegralVal(normalize(terms |+| oth.terms))
     }
 
     def -(oth: IntegralVal[E])(implicit ring: Ring[E]): IntegralVal[E] =
       this + IntegralVal(oth.mapValues(ring.negate))
 
     def *(oth: E)(implicit ring: Ring[E]): IntegralVal[E] = {
-      IntegralVal(terms.mapValues(_ * oth))
+      if (ring.isZero(oth) || isZero)
+        IntegralVal.zero
+      else
+        IntegralVal(normalize(terms.mapValues(_ * oth)))
     }
 
     def *(oth: Int)(implicit ring: Ring[E]): IntegralVal[E] = {
@@ -76,31 +83,40 @@ object Definitions {
       IntegralVal(terms.map { case (f, c) => (f.map(func), func(c)) })
     }
 
+    def isZero = terms.isEmpty
+
     override def toString: String = terms.map { case (k, v) => "(" + v + ") * " + k }.mkString("+")
 
-    def stringify()(implicit ring: Ring[E]): String = terms.map { case (k, v) =>
-      "(" + ring.stringify(v) + ") * " + k.stringify()
-    }.mkString(" + ")
+    def stringify()(implicit ring: Ring[E]): String =
+      if (terms.isEmpty)
+        "0"
+      else
+        terms.map { case (k, v) =>
+          "(" + ring.stringify(v) + ") * " + k.stringify()
+        }.mkString(" + ")
 
     /** Prints expression to a stream */
     def print(stream: PrintStream, formatter: PrintFormatter)(implicit ring: Ring[E]): Unit = {
-      terms.toSeq.foldLeft(0) { case (i, (integral, coefficient)) =>
-        if (i != 0 || formatter.tablePrint)
-          stream.print(" + ")
+      if (terms.isEmpty)
+        stream.print("0")
+      else
+        terms.toSeq.foldLeft(0) { case (i, (integral, coefficient)) =>
+          if (i != 0 || formatter.tablePrint)
+            stream.print(" + ")
 
-        integral.print(stream, formatter)
-        stream.print(" * ")
-        if (formatter.fmt == PrintFormat.FORM)
-          stream.print("factor")
+          integral.print(stream, formatter)
+          stream.print(" * ")
+          if (formatter.fmt == PrintFormat.FORM)
+            stream.print("factor")
 
-        stream.print("(")
-        stream.print(ring.stringify(coefficient))
-        stream.print(")")
+          stream.print("(")
+          stream.print(ring.stringify(coefficient))
+          stream.print(")")
 
-        if (formatter.tablePrint)
-          stream.print("\n")
-        i + 1
-      }
+          if (formatter.tablePrint)
+            stream.print("\n")
+          i + 1
+        }
     }
   }
 
@@ -127,35 +143,45 @@ object Definitions {
     }
 
     def print(stream: PrintStream, of: PrintFormatter)(implicit ring: Ring[E]): Unit = {
-      terms.toSeq.foldLeft(0) { case (i, (integral, coefficient)) =>
-        if (i != 0 || of.tablePrint)
-          stream.print(" + ")
-        integral.print(stream, of)
-        stream.print(" * ")
+      if (terms.isEmpty)
+        stream.print("0")
+      else
+        terms.toSeq.foldLeft(0) { case (i, (integral, coefficient)) =>
+          if (i != 0 || of.tablePrint)
+            stream.print(" + ")
+          integral.print(stream, of)
+          stream.print(" * ")
 
-        coefficient.foldLeft(0) { case (j, (factor, exp)) =>
-          if (j != 0)
-            stream.print(" * ")
-          if (of.fmt == PrintFormat.FORM)
-            stream.print("factor")
-          stream.print("(")
-          stream.print(ring.stringify(factor))
-          stream.print(")")
-          if (exp != 1)
-            stream.print(s" ^ $exp")
-          j + 1
+          coefficient.foldLeft(0) { case (j, (factor, exp)) =>
+            if (j != 0)
+              stream.print(" * ")
+            if (of.fmt == PrintFormat.FORM)
+              stream.print("factor")
+            stream.print("(")
+            stream.print(ring.stringify(factor))
+            stream.print(")")
+            if (exp != 1)
+              stream.print(s" ^ $exp")
+            j + 1
+          }
+
+          if (of.tablePrint)
+            stream.print("\n")
+          i + 1
         }
-
-        if (of.tablePrint)
-          stream.print("\n")
-        i + 1
-      }
     }
+
+    def stringify()(implicit ring: Ring[E]) =
+      if (terms.isEmpty)
+        "0"
+      else
+        terms.map { case (k, v) =>
+          v.map(t => "(" + ring.stringify(t._1) + ")" + (if (t._2 == 1) "" else ("^" + t._2))).mkString(" * ") + " * " + k.stringify()
+        }.mkString(" + ")
   }
 
   object FactorizedIntegralVal {
-    def Factor[E](iVal: IntegralVal[E])(implicit ring: Ring[E]) = {
+    def Factor[E](iVal: IntegralVal[E])(implicit ring: Ring[E]) =
       FactorizedIntegralVal(iVal.terms.map { case (k, v) => (k, ring.factor(v).toSeq) })
-    }
   }
 }

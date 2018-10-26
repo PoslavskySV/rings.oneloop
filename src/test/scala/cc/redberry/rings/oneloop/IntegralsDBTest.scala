@@ -32,16 +32,18 @@ class IntegralsDBTest {
     val e2 = CachedIntegralVal(f2, IntegralVal(f2) + IntegralVal(f3))
     val e3 = CachedIntegralVal(f3, IntegralVal(f3) + IntegralVal(f1))
 
-    val cache = new IntegralsDB(file)
-    cache.putRawIntegral(if1, e1, ring)
-    cache.putRawIntegral(if2, e2, ring)
-    cache.putRawIntegral(if3, e3, ring)
-    cache.close()
+    for (generic <- Seq(true, false)) {
+      val cache = new IntegralsDB(file)
+      cache.putIntegral(generic, if1, e1, ring)
+      cache.putIntegral(generic, if2, e2, ring)
+      cache.putIntegral(generic, if3, e3, ring)
+      cache.close()
 
-    val recache = new IntegralsDB(file)
-    assert(recache.getRawIntegral(if1, ring) == e1)
-    assert(recache.getRawIntegral(if2, ring) == e2)
-    assert(recache.getRawIntegral(if3, ring) == e3)
-    recache.close()
+      val recache = new IntegralsDB(file)
+      assert(recache.getIntegral(generic, if1, ring) == e1)
+      assert(recache.getIntegral(generic, if2, ring) == e2)
+      assert(recache.getIntegral(generic, if3, ring) == e3)
+      recache.close()
+    }
   }
 }

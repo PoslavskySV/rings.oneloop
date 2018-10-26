@@ -1,5 +1,8 @@
 package cc.redberry.rings.oneloop;
 
+import cc.redberry.rings.oneloop.Definitions.IntegralDef;
+import cc.redberry.rings.scaladsl.Frac;
+import cc.redberry.rings.scaladsl.IPolynomialRing;
 import cc.redberry.rings.scaladsl.Ring;
 import cc.redberry.rings.util.ZipUtil;
 import org.mapdb.DB;
@@ -48,7 +51,12 @@ public final class IntegralsDB implements Closeable {
         this.dbFile = file;
     }
 
-    enum OffHeapMapType {rawIntegrals, simplifiedIntegrals}
+    enum OffHeapMapType {
+        genericIntegrals,
+        evaluatedIntegrals,
+        factorizedGenericIntegrals,
+        factorizedEvaluatedIntegrals,
+    }
 
     @SuppressWarnings("unchecked")
     private <T> Map<IntegralSignature, T> getMap(OffHeapMapType mt,
@@ -60,7 +68,7 @@ public final class IntegralsDB implements Closeable {
             // use _theRing_ for table name:
             //  - it is smaller in size (doesn't hold quite heavy coder)
             //  - it is more universal
-            String mapKey = mt.toString() + ZipUtil.compress(ring.theRing());
+            String mapKey = mt.toString() + ZipUtil.compress(ring.theRing()) + String.join(",", varsMapping(ring));
             map = db.hashMap(mapKey)
                     .keySerializer(new IntegralSignatureSerializer<>(ring))
                     .valueSerializer(serializer.get())
@@ -70,19 +78,31 @@ public final class IntegralsDB implements Closeable {
         return map;
     }
 
-    /** ring -> off-heap map */
-    private Map<Ring, Map<IntegralSignature, CachedIntegralVal>> rawIntegralsDB = new HashMap<>();
-    private Map<Ring, Map<IntegralSignature, CachedFactorizedIntegralVal>> simplifiedIntegralsDB = new HashMap<>();
-
-    @SuppressWarnings("unchecked")
-    private Map<IntegralSignature, CachedIntegralVal> getRawIntegralsMap(Ring ring) {
-        return getMap(OffHeapMapType.rawIntegrals, rawIntegralsDB, ring, () -> new CachedIntegralValSerializer<>(ring));
+    private static String[] varsMapping(Ring ring) {
+        if (ring instanceof IPolynomialRing)
+            return ((IPolynomialRing) ring).variables();
+        if (ring instanceof Frac)
+            return varsMapping(((Frac) ring).ring());
+        else
+            throw new RuntimeException();
     }
 
+    /** ring -> off-heap map of generic integrals */
+    private Map<Ring, Map<IntegralSignature, CachedIntegralVal>> genericIntegralsDB = new HashMap<>();
+    /** ring -> off-heap map of integrals with substituted values */
+    private Map<Ring, Map<IntegralSignature, CachedIntegralVal>> evaluadedIntegralsDB = new HashMap<>();
+    /** ring -> off-heap map of generic factorized integrals */
+    private Map<Ring, Map<IntegralSignature, CachedFactorizedIntegralVal>> factorizedGenericIntegralsDB = new HashMap<>();
+    /** ring -> off-heap map of factorized integrals with substituted values */
+    private Map<Ring, Map<IntegralSignature, CachedFactorizedIntegralVal>> factorizedEvaluatedIntegralsDB = new HashMap<>();
+
     @SuppressWarnings("unchecked")
-    public <E> CachedIntegralVal<E> getRawIntegral(IntegralSignature<E> key, Ring<E> ring) {
+    <E> CachedIntegralVal<E> getIntegral(boolean generic, IntegralSignature<E> key, Ring<E> ring) {
         try {
-            return getRawIntegralsMap(ring).get(key);
+            OffHeapMapType mt = generic ? OffHeapMapType.genericIntegrals : OffHeapMapType.evaluatedIntegrals;
+            return getMap(mt,
+                    generic ? genericIntegralsDB : evaluadedIntegralsDB,
+                    ring, () -> new CachedIntegralValSerializer<>(ring)).get(key);
         } catch (Throwable t) {
             System.err.println("ERR: broken database, making new; restart the calculation. Error message: " + t.getMessage());
             dbFile.delete();
@@ -90,19 +110,12 @@ public final class IntegralsDB implements Closeable {
         }
     }
 
-    public <E> void putRawIntegral(IntegralSignature<E> key, CachedIntegralVal<E> value, Ring<E> ring) {
-        getRawIntegralsMap(ring).put(key, value);
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<IntegralSignature, CachedFactorizedIntegralVal> getSimlpifiedIntegralsMap(Ring ring) {
-        return getMap(OffHeapMapType.simplifiedIntegrals, simplifiedIntegralsDB, ring, () -> new CachedFactorizedIntegralValSerializer(ring));
-    }
-
-    @SuppressWarnings("unchecked")
-    public <E> CachedFactorizedIntegralVal<E> getSimplifiedIntegral(IntegralSignature<E> key, Ring<E> ring) {
+    public <E> void putIntegral(boolean generic, IntegralSignature<E> key, CachedIntegralVal<E> value, Ring<E> ring) {
         try {
-            return getSimlpifiedIntegralsMap(ring).get(key);
+            OffHeapMapType mt = generic ? OffHeapMapType.genericIntegrals : OffHeapMapType.factorizedGenericIntegrals;
+            getMap(mt,
+                    generic ? genericIntegralsDB : evaluadedIntegralsDB,
+                    ring, () -> new CachedIntegralValSerializer<>(ring)).put(key, value);
         } catch (Throwable t) {
             System.err.println("ERR: broken database, making new; restart the calculation. Error message: " + t.getMessage());
             dbFile.delete();
@@ -110,8 +123,31 @@ public final class IntegralsDB implements Closeable {
         }
     }
 
-    public <E> void putSimplifiedIntegral(IntegralSignature<E> key, CachedFactorizedIntegralVal<E> value, Ring<E> ring) {
-        getSimlpifiedIntegralsMap(ring).put(key, value);
+    @SuppressWarnings("unchecked")
+    <E> CachedFactorizedIntegralVal<E> getFactorization(boolean generic, IntegralSignature<E> key, Ring<E> ring) {
+        try {
+            OffHeapMapType mt = generic ? OffHeapMapType.factorizedGenericIntegrals : OffHeapMapType.factorizedEvaluatedIntegrals;
+            return getMap(mt,
+                    generic ? factorizedGenericIntegralsDB : factorizedEvaluatedIntegralsDB,
+                    ring, () -> new CachedFactorizedIntegralValSerializer(ring)).get(key);
+        } catch (Throwable t) {
+            System.err.println("ERR: broken database, making new; restart the calculation. Error message: " + t.getMessage());
+            dbFile.delete();
+            throw t;
+        }
+    }
+
+    public <E> void putFactorization(boolean generic, IntegralSignature<E> key, CachedFactorizedIntegralVal<E> value, Ring<E> ring) {
+        try {
+            OffHeapMapType mt = generic ? OffHeapMapType.factorizedGenericIntegrals : OffHeapMapType.factorizedEvaluatedIntegrals;
+            getMap(mt,
+                    generic ? factorizedGenericIntegralsDB : factorizedEvaluatedIntegralsDB,
+                    ring, () -> new CachedIntegralValSerializer<>(ring)).put(key, value);
+        } catch (Throwable t) {
+            System.err.println("ERR: broken database, making new; restart the calculation. Error message: " + t.getMessage());
+            dbFile.delete();
+            throw t;
+        }
     }
 
     @Override

@@ -1,16 +1,15 @@
 package cc.redberry.rings.oneloop
 
 import cc.redberry.rings.oneloop.Definitions._
-import cc.redberry.rings.scaladsl.Ring
+import cc.redberry.rings.scaladsl._
 import org.mapdb.{DataInput2, DataOutput2, Serializer}
 
 
-/** Integral signature (indices + dimension) */
-// todo: same data structure as IntegralDef: generify?
-case class IntegralSignature[E](id: String, indices: Seq[Int], args: Seq[E])
+///** Integral signature (indices + dimension + zero variables) */
+case class IntegralSignature[E](id: String, indices: Seq[Int], args: Seq[E], zeros: Seq[Int])
 
 object IntegralSignature {
-  def apply[E](iDef: IntegralDef[E]): IntegralSignature[E] = IntegralSignature(iDef.id, iDef.indices, iDef.args)
+  def apply[E](iDef: IntegralDef[E]): IntegralSignature[E] = IntegralSignature(iDef.id, iDef.indices, iDef.args, Seq.empty)
 }
 
 /** Integral signature serialization */
@@ -18,21 +17,65 @@ final class IntegralSignatureSerializer[E](ring: Ring[E])
   extends Serializer[IntegralSignature[E]] {
   override def serialize(out: DataOutput2, value: IntegralSignature[E]): Unit = {
     out.writeUTF(value.id)
+
     out.writeInt(value.indices.length)
     value.indices.foreach(out.writeInt)
+
     out.writeInt(value.args.length)
     value.args.foreach(a => out.writeUTF(ring.stringify(a)))
+
+    out.writeInt(value.zeros.length)
+    value.zeros.foreach(out.writeInt)
   }
 
   override def deserialize(in: DataInput2, available: Int): IntegralSignature[E] = {
     val id = in.readUTF()
+
     val iLen = in.readInt()
     val indices = (0 until iLen).map(_ => in.readInt())
+
     val aLen = in.readInt()
     val args = (0 until aLen).map(_ => ring(in.readUTF()))
-    IntegralSignature(id, indices, args)
+
+    val zLen = in.readInt()
+    val zeros = (0 until zLen).map(_ => in.readInt())
+
+    IntegralSignature(id, indices, args, zeros)
   }
 }
+
+//object ModelsUtil {
+//  def varsMapping[E](ring: Ring[E]): Map[String, Int] = ring match {
+//    case pRing: IPolynomialRing[_, E] => pRing.variables.zipWithIndex.toMap
+//    case rRing: Frac[E] => varsMapping(rRing.ring)
+//    case _ => ???
+//  }
+//
+//  def useMapping[E](ring: Ring[E], mapping: Map[String, Int]): Unit = ring match {
+//    case pRing: IPolynomialRing[_, E] => mapping.foreach { case (str, i) => pRing.coder.bindPolynomialVariable(str, i) }
+//    case rRing: Frac[E] => useMapping(rRing.ring, mapping)
+//    case _ => ???
+//  }
+//}
+//
+//object VarsMappingSerializer extends Serializer[Map[String, Int]] {
+//  override def serialize(out: DataOutput2, value: Map[String, Int]): Unit = {
+//    out.writeInt(value.size)
+//    value.foreach { case (str, i) =>
+//      out.writeUTF(str)
+//      out.writeInt(i)
+//    }
+//  }
+//
+//  override def deserialize(in: DataInput2, available: Int): Map[String, Int] = {
+//    val len = in.readInt()
+//    (0 until len).map(_ => {
+//      val str = in.readUTF()
+//      val i = in.readInt()
+//      (str, i)
+//    }).toMap
+//  }
+//}
 
 /** Cached value of integral */
 case class CachedIntegralVal[E](iDef: IntegralDef[E],
@@ -89,7 +132,11 @@ final class IntegralDefSerializer[E](ring: Ring[E])
     out.writeInt(value.indices.length)
     value.indices.foreach(out.writeInt)
     out.writeInt(value.args.length)
-    value.args.foreach { a => out.writeUTF(ring.stringify(a)) }
+    value.args.foreach { a => out.writeUTF(ring.stringify(a));
+    if(ring.stringify(a).isEmpty){
+      val as = 3;
+    }
+    }
   }
 
   override def deserialize(in: DataInput2, available: Int): IntegralDef[E] = {

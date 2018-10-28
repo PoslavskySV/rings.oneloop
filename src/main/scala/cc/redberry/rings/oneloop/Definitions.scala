@@ -14,6 +14,32 @@ object Definitions {
     val MMA, Maple, FORM = Value
 
     def byName(s: String): Option[Value] = values.find(_.toString.equalsIgnoreCase(s))
+
+    private
+    def formPrint[E](expr: E)(implicit ring: Ring[E]): String = expr match {
+      case frac: Rational[_] => _formPrint(frac.asInstanceOf[Rational[_]])(ring.asInstanceOf[Ring[Any]])
+      case _ => ring stringify expr
+    }
+
+    private
+    def _formPrint[E](expr: Rational[E])(implicit ring: Ring[Any]): String = {
+      val cRing = ring.asInstanceOf[Frac[E]].ring
+      val num = expr.numerator()
+      val den = expr.denominator()
+      if (cRing.isOne(den))
+        cRing stringify num
+      else
+        s"frac(${cRing stringify num}, ${cRing stringify den})"
+    }
+
+    protected case class Stringifier(fmt: Value) {
+      def stringify[E](e: E)(implicit ring: Ring[E]) = fmt match {
+        case MMA | Maple => ring stringify e
+        case FORM => formPrint(e)
+      }
+    }
+
+    implicit def value2stringifier(fmt: Value) = Stringifier(fmt)
   }
 
   import PrintFormat._
@@ -46,7 +72,7 @@ object Definitions {
       stream.print(formatter.fmt match { case MMA => "[" case Maple | FORM => "(" })
       stream.print(indices.mkString(","))
       stream.print(",")
-      stream.print(args.map(ring.stringify).mkString(","))
+      stream.print(args.map(e => formatter.fmt.stringify(e)(ring)).mkString(","))
       stream.print(formatter.fmt match { case MMA => "]" case Maple | FORM => ")" })
     }
   }
@@ -110,7 +136,7 @@ object Definitions {
             stream.print("factor")
 
           stream.print("(")
-          stream.print(ring.stringify(coefficient))
+          stream.print(formatter.fmt.stringify(coefficient))
           stream.print(")")
 
           if (formatter.tablePrint)
@@ -158,7 +184,7 @@ object Definitions {
             if (of.fmt == PrintFormat.FORM)
               stream.print("factor")
             stream.print("(")
-            stream.print(ring.stringify(factor))
+            stream.print(of.fmt.stringify(factor))
             stream.print(")")
             if (exp != 1)
               stream.print(s" ^ $exp")

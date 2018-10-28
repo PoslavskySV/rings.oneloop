@@ -27,8 +27,14 @@ class Determinants3x3[E](cfRing: Ring[E]) extends Serializable {
 
   /** evaluates compiled expression at given polynomial points */
   private def composition(expr: Expr, vals: Rational[Expr]*): Rational[Expr] = {
-    assert(vals.forall(_.isIntegral))
-    Rational(expr.composition(vals.map(_.numerator()): _*))(vals(0).ring)
+    val newPolyRing = vals(0).ring
+    if (vals.forall(_.isIntegral))
+      Rational(expr.composition(vals.map(_.numerator()): _*))(newPolyRing)
+    else {
+      val tmpRing = Frac(newPolyRing)
+      val factory = newPolyRing.getOne
+      expr.mapCoefficients(tmpRing, (cf: E) => tmpRing.mkNumerator(factory.createConstant(cf))).evaluate(vals: _*)
+    }
   }
 
   def DerDet3x1(p23: Rat, p13: Rat, p12: Rat): Rat = composition(obj_DerDet3x1, p23, p13, p12)

@@ -34,6 +34,7 @@ class MasslessIntegrals[E](cfRing: Ring[E],
   val polyRing = MultivariateRing(cfRing, (Seq("d") ++ usedVariables).distinct.toArray)
   /** Field of rational functions */
   implicit val ring: Frac[MultivariatePolynomial[E]] = Frac(polyRing)
+  log(s"Ring: $ring")
   /** Polynomial type */
   type Poly = polyRing.ElementType
   /** Type of mathematica expressions involved (rational functions) */
@@ -230,8 +231,8 @@ class MasslessIntegrals[E](cfRing: Ring[E],
   private
   def _limitExpr(e: Expr, iVars: Array[Int], to: Array[Expr]): Expr = {
     val vars: Array[Expr] = (0 until polyRing.nVariables()).map(i => ring.mkNumerator(polyRing.theRing.variable(i))).toArray
-    for (i <- iVars)
-      vars(i) = to(i)
+    for (i <- iVars.indices)
+      vars(iVars(i)) = to(i)
 
     val Seq(num, den) = Seq(e.numerator(), e.denominator())
       .map(_.mapCoefficients[Expr](ring, c => ring.mkNumerator(polyRing.getConstant(c))).evaluate(vars: _*))

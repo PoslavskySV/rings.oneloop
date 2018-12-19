@@ -8,6 +8,7 @@ import cc.redberry.core.parser.ParserIndices
 import cc.redberry.core.tensor.Tensors._
 import cc.redberry.core.tensor.{Tensor, Tensors}
 import cc.redberry.core.transformations.DifferentiateTransformation.differentiate
+import cc.redberry.core.transformations.expand.ExpandTransformation
 import cc.redberry.core.utils.TensorUtils
 import cc.redberry.rings.oneloop.Definitions.FactorizedIntegralVal.Factor
 import cc.redberry.rings.oneloop.Definitions._
@@ -831,7 +832,7 @@ object Util {
 
     val zSub = expression(parse("a_i"), parse("0"))
     val res = zSub.transform(diff)
-    res
+    ExpandTransformation.expand(res)
   }
 
   /** auxiliary method used to shuffle variables (from <-> to) */

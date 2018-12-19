@@ -1,5 +1,5 @@
 # rings.oneloop
-Oneloop massless scalar and tensor integral reduction by means of Tarasov's recurrence relations (adapted from Tarasov's Maple programms).
+Oneloop massless scalar and tensor integral reduction by means of Tarasov's recurrence relations (adapted from O. V. Tarasov's Maple codes).
 
 ## Standalone
 

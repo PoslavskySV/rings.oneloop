@@ -53,7 +53,7 @@ object Definitions {
   case class PrintFormatter(fmt: PrintFormat, tablePrint: Boolean)
 
   /**
-    * Generic integral definition I[ {n1, n2, ...} , {s12, s13, ...}]
+    * Generic integral definition I[ {n1, n2, ...} , {d, s12, s13, ...}]
     *
     * @param id      string name of integral ("head")
     * @param indices indices of integral
@@ -78,7 +78,7 @@ object Definitions {
   }
 
   private
-  def normalize[E](terms: Map[IntegralDef[E], E])(implicit ring: Ring[E]) =
+  def normalize[K, E](terms: Map[K, E])(implicit ring: Ring[E]) =
     terms.filterNot(t => ring.isZero(t._2))
 
   /** Sum of integrals with polynomial coefficients */
@@ -87,7 +87,7 @@ object Definitions {
       import scalaz._
       import Scalaz._
 
-      implicit val semigroup: Semigroup[E] = (f1, f2) => ring.add(f1, f2)
+      implicit val sg: Semigroup[E] = (f1, f2) => ring.add(f1, f2)
       IntegralVal(normalize(terms |+| oth.terms))
     }
 
@@ -109,7 +109,7 @@ object Definitions {
       IntegralVal(terms.map { case (f, c) => (f.map(func), func(c)) })
     }
 
-    def isZero = terms.isEmpty
+    def isZero: Boolean = terms.isEmpty
 
     override def toString: String = terms.map { case (k, v) => "(" + v + ") * " + k }.mkString("+")
 
@@ -167,6 +167,33 @@ object Definitions {
     def map(func: E => E): FactorizedIntegralVal[E] = {
       FactorizedIntegralVal(terms.map { case (f, seq) => (f.map(func), seq.map(e => (func(e._1), e._2))) })
     }
+
+    def +(oth: FactorizedIntegralVal[E])(implicit ring: Ring[E]): FactorizedIntegralVal[E] = {
+      if (terms.isEmpty)
+        return oth
+      if (oth.terms.isEmpty)
+        return this
+
+      import scalaz._
+      import Scalaz._
+
+      def toE(seq: Seq[(E, Int)]) = ring.multiply(seq.map { case (v, e) => ring.pow(v, e) }: _*)
+
+      implicit val sg: Semigroup[Seq[(E, Int)]] =
+        (f1, f2) =>
+          if (f1.isEmpty)
+            f2
+          else if (f2.isEmpty)
+            f1
+          else
+            ring.factor(ring.add(toE(f1), toE(f2))).toSeq
+
+      FactorizedIntegralVal(terms |+| oth.terms)
+    }
+
+    def *(oth: E)(implicit ring: Ring[E]): FactorizedIntegralVal[E] =
+      FactorizedIntegralVal(terms.mapValues(_ ++ Seq((oth, 1))))
+
 
     def print(stream: PrintStream, of: PrintFormatter)(implicit ring: Ring[E]): Unit = {
       if (terms.isEmpty)

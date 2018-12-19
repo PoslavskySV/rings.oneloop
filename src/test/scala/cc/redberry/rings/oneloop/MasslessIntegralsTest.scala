@@ -7,7 +7,8 @@ import cc.redberry.rings.oneloop.Definitions.FactorizedIntegralVal.Factor
 import cc.redberry.rings.oneloop.Definitions.{FactorizedIntegralVal, IntegralVal, PrintFormat, PrintFormatter}
 import cc.redberry.rings.scaladsl._
 import cc.redberry.rings.scaladsl.syntax._
-import org.junit.Test
+import org.junit.{Ignore, Test}
+import TestUtil._
 
 /**
   *
@@ -186,6 +187,7 @@ class MasslessIntegralsTest {
   }
 
   @Test
+  @Ignore
   def test8(): Unit = {
     val calculator = new MasslessIntegrals(Z, databaseFile = None) //Some("/Users/poslavskysv/Downloads/integrals___.db")
     try {
@@ -215,7 +217,43 @@ class MasslessIntegralsTest {
       calculator.close()
   }
 
-  def mkTempFile() = Files.createTempFile("xxxxx", "yyyyy").toString
+  @Test
+  def test9(): Unit = {
+    val calculator = new MasslessIntegrals(Z, databaseFile = None)//Some(mkTempFile())) //Some("/Users/poslavskysv/Downloads/integrals___.db")
+    try {
+      implicit val ring: Frac[MultivariatePolynomial[IntZ]] = calculator.ring
+      val (s12, s23, s34, s45, s15) = ring("s12", "s23", "s34", "s45", "s15")
+      val (s13, s14, s24, s25, s35) = ring("s13", "s14", "s24", "s25", "s35")
+      val dim = ring("d")
+      import calculator._
+
+      //      val i5def = calculator.I4(2, 2, 1, 1, 2, s12, s23, s34, s13, s14, s24)._1
+      val i5def = calculator.I3(2, 1, 1, 0, s12, s23, s13)._1
+
+      val indices = Seq("a", "b")
+      val e0 = calculator.evaluate0(i5def, indices, false)
+      val e1 = calculator.evaluate1(i5def, indices, false)
+      val e2 = calculator.evaluate2(i5def, indices, false)
+
+      println(e0.keySet)
+      println(e1.keySet)
+      println(e2.keySet)
+
+
+      println(e0)
+      println(e1)
+
+
+      println(e0.head._2.left.get.terms.keySet)
+      println(e1.head._2.left.get.terms.keySet)
+
+      println(e0 == e1)
+      println(e0 == e2)
+      println(e1 == e2)
+
+    } finally
+      calculator.close()
+  }
 
   //  @Test
   //  def test1(): Unit = {

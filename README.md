@@ -1,5 +1,7 @@
 # rings.oneloop
-Oneloop massless scalar and tensor integral reduction by means of Tarasov's recurrence relations
+Oneloop massless scalar and tensor integral reduction by means of Tarasov's recurrence relations.
+
+## Standalone
 
 ```
 oneloop v1.0
@@ -95,4 +97,19 @@ Subcommand: i5 - Computes massless 5-point integral I5[s12, s23, s34, s45, s15, 
       --s45  <arg>              Optional value for kinematic invariant s25
   -t, --table-print             Print each summand of the result on a new line
   -h, --help                    Show help message
+```
+
+## Mathematica interface
+
+Install MMA wrapper using
+
+```
+Import["https://raw.githubusercontent.com/PoslavskySV/rings.oneloop/develop/mma/Install.m"]; DoInstall[];
+```
+
+Then run e.g. 
+
+```
+<< oneloop`
+I4[1, 1, 1, 1, 2, Factorize -> True, Characteristic -> 0, Indices -> "mn"]
 ```

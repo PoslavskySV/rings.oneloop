@@ -26,7 +26,8 @@ class MasslessIntegrals[E](val cfRing: Ring[E],
                            val fourPointDef: String = "I4",
                            val fivePointDef: String = "I5",
                            val usedVariables: Seq[String] = Seq("s12", "s23", "s34", "s45", "s15", "s13", "s14", "s24", "s25", "s35"),
-                           val doLog: Boolean = true)
+                           val doLog: Boolean = true,
+                           val logStream: PrintStream = System.err)
   extends Closeable {
 
   // import determinants
@@ -88,7 +89,7 @@ class MasslessIntegrals[E](val cfRing: Ring[E],
 
   /** logging */
   private
-  def log(msg: String): Unit = if (doLog) Console.err.println(msg)
+  def log(msg: String): Unit = if (doLog) logStream.println(msg)
 
   /**
     * Global off-heap storage of calculated integrals
@@ -679,10 +680,10 @@ class MasslessIntegrals[E](val cfRing: Ring[E],
             stream.print(" + ")
           if (tensor.tensor.isInstanceOf[tSum]) {
             stream.print("(")
-            stream.print(tensor.tensor)
+            stream.print(tensor.toString(of))
             stream.print(")")
           } else
-            stream.print(tensor)
+            stream.print(tensor.toString(of))
 
           stream.print(" * ")
           stream.print("(")
@@ -701,7 +702,10 @@ class MasslessIntegrals[E](val cfRing: Ring[E],
     override def equals(obj: Any): Boolean =
       obj.isInstanceOf[Indexed] && TensorUtils.equals(tensor, obj.asInstanceOf[Indexed].tensor)
 
-    override def toString: String = tensor.toString
+    def toString(of: PrintFormatter): String = of.fmt match {
+      case PrintFormat.MMA => tensor.toString(OutputFormat.WolframMathematica)
+      case _ => tensor.toString()
+    }
   }
 
   /**
@@ -814,7 +818,7 @@ object Util {
   def mkTensorReduction(nPropagators: Int, indices: Seq[String]): Tensor = {
     var expArg = parse("0")
     for (i <- 0 until (nPropagators - 1)) {
-      expArg = sum(expArg, parse(s"a_{m}*p^{m} * alpha[$i]"))
+      expArg = sum(expArg, parse(s"a_{m}*p${i + 1}^{m} * alpha[$i]"))
     }
     expArg = subtract(expArg, parse("a_{m}*a^{m} / 4"))
     val tOp = parse(s"Exp[I * ($expArg) * d]")

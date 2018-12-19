@@ -1,6 +1,8 @@
 package cc.redberry.rings.oneloop
 
 
+import java.io.{ByteArrayOutputStream, PrintStream}
+
 import cc.redberry.rings.oneloop.Definitions.{FactorizedIntegralVal, IntegralDef, IntegralVal, PrintFormat, PrintFormatter}
 import cc.redberry.rings.scaladsl._
 import org.rogach.scallop._
@@ -228,24 +230,25 @@ object Main {
     verify()
   }
 
-  def main(args: Array[String]): Unit = {
+  def main(stdout: PrintStream, stderr: PrintStream, args: Array[String]): Unit = {
     val conf = new GlobalConf(args)
 
-    def helpAndReturn(header: String = "", exitCode: Int = 0): Unit = {
-      println(
+    def helpAndReturn(header: String = ""): Unit = {
+      stdout.println(
         s"""
            | $header
            | ${conf.printHelp()}
       """.stripMargin)
-      System.exit(exitCode)
     }
 
-    if (conf.subcommands.isEmpty)
+    if (conf.subcommands.isEmpty) {
       helpAndReturn()
+      return
+    }
 
     val genOpts: GenericOpts = conf.subcommand match {
       case Some(cmd) => cmd.asInstanceOf[GenericOpts]
-      case None => helpAndReturn(); null
+      case None => helpAndReturn(); return
     }
 
     val char = genOpts.characteristic()
@@ -270,7 +273,8 @@ object Main {
     val cfRing = if (char == 0) Z else Zp(char)
     val calculator = new MasslessIntegrals(cfRing,
       databaseFile = if (genOpts.noDB()) None else Some(genOpts.dbFile()),
-      usedVariables = variables)
+      usedVariables = variables,
+      logStream = stderr)
     implicit val ring: Frac[MultivariatePolynomial[IntZ]] = calculator.ring
 
     val start = System.nanoTime()
@@ -289,7 +293,7 @@ object Main {
             ring(fp.s13()), ring(fp.s14()), ring(fp.s24()), ring(fp.s25()), ring(fp.s35()))
         case _ =>
           helpAndReturn()
-          null
+          return
       }
 
       import calculator.{ResultOps, TensorIntegralValOps}
@@ -303,24 +307,35 @@ object Main {
 
       import scala.concurrent.duration._
 
-      System.err.println(s"Finished in ${elapsed.nanos.toSeconds}s")
+      stderr.println(s"Finished in ${elapsed.nanos.toSeconds}s")
 
-      iDef.print(System.out, formatter)
+      iDef.print(stdout, formatter)
       if (!genOpts.indices().isEmpty)
-        System.out.print(s"_{${genOpts.indices()}}")
+        stdout.print(s"_{${genOpts.indices()}}")
 
       if (formatter.fmt == PrintFormat.Maple)
-        System.out.print(s" := ")
+        stdout.print(s" := ")
       else
-        System.out.print(s" = ")
+        stdout.print(s" = ")
 
       if (formatter.tablePrint)
-        System.out.print("\n")
+        stdout.print("\n")
 
-      result.print(System.out, formatter)
-      System.out.print("\n")
+      result.print(stdout, formatter)
+      stdout.print("\n")
 
     } finally
       calculator.close()
+  }
+
+  def main(args: Array[String]): Unit = {
+    main(System.out, System.err, args)
+  }
+
+  def mainToString(args: Array[String]): (String, String) = {
+    val outbb = new ByteArrayOutputStream()
+    val errbb = new ByteArrayOutputStream()
+    main(new PrintStream(outbb), new PrintStream(errbb), args)
+    return (outbb.toString, errbb.toString)
   }
 }

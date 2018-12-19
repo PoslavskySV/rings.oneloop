@@ -23,4 +23,5 @@ DoInstall[OptionsPattern[]] := Module[{zip, unzipDir},
 
   Quiet@DeleteFile[zip];
   Quiet@DeleteDirectory[unzipDir, DeleteContents -> True];
+  Print@"Successfully installed oneloop " <> $OneloopVersion;
 ];

@@ -55,6 +55,12 @@ object Main {
       default = Some(false),
       required = false)
 
+    val indices = opt[String](
+      name = "indices",
+      descr = "Tensor indices",
+      default = Some(""),
+      required = false)
+
     def kinematicInvariants(): Seq[String] = Seq.empty
   }
 
@@ -266,28 +272,33 @@ object Main {
       databaseFile = if (genOpts.noDB()) None else Some(genOpts.dbFile()),
       usedVariables = variables)
     implicit val ring: Frac[MultivariatePolynomial[IntZ]] = calculator.ring
-    import calculator.Expr
 
     val start = System.nanoTime()
     try {
-      val (iDef, iVal): (IntegralDef[Expr], Either[IntegralVal[Expr], FactorizedIntegralVal[Expr]])
-      = conf.subcommands match {
+      val iDef = conf.subcommands match {
         case (tp@conf.twoPoint) :: Nil =>
-          calculator.I2(tp.n1(), tp.n2(), tp.di(), ring(tp.s12()), tp.factorize())
+          calculator.mkI2def(tp.n1(), tp.n2(), tp.di(), ring(tp.s12()))
         case (tp@conf.threePoint) :: Nil =>
-          calculator.I3(tp.n1(), tp.n2(), tp.n3(), tp.di(), ring(tp.s23()), ring(tp.s13()), ring(tp.s12()), tp.factorize())
+          calculator.mkI3def(tp.n1(), tp.n2(), tp.n3(), tp.di(), ring(tp.s23()), ring(tp.s13()), ring(tp.s12()))
         case (fp@conf.fourPoint) :: Nil =>
-          calculator.I4(fp.n1(), fp.n2(), fp.n3(), fp.n4(), fp.di(),
-            ring(fp.s12()), ring(fp.s23()), ring(fp.s34()), ring(fp.s14()), ring(fp.s24()), ring(fp.s13()), fp.factorize())
+          calculator.mkI4def(fp.n1(), fp.n2(), fp.n3(), fp.n4(), fp.di(),
+            ring(fp.s12()), ring(fp.s23()), ring(fp.s34()), ring(fp.s14()), ring(fp.s24()), ring(fp.s13()))
         case (fp@conf.fivePoint) :: Nil =>
-          calculator.I5(fp.n1(), fp.n2(), fp.n3(), fp.n4(), fp.n5(), fp.di(),
+          calculator.mkI5def(fp.n1(), fp.n2(), fp.n3(), fp.n4(), fp.n5(), fp.di(),
             ring(fp.s12()), ring(fp.s23()), ring(fp.s34()), ring(fp.s45()), ring(fp.s15()),
-            ring(fp.s13()), ring(fp.s14()), ring(fp.s24()), ring(fp.s25()), ring(fp.s35()),
-            fp.factorize())
+            ring(fp.s13()), ring(fp.s14()), ring(fp.s24()), ring(fp.s25()), ring(fp.s35()))
         case _ =>
           helpAndReturn()
           null
       }
+
+      import calculator.{ResultOps, TensorIntegralValOps}
+      val result: calculator.PrintableOps =
+        if (!genOpts.indices().isEmpty)
+          calculator.evaluate(iDef, genOpts.indices(), genOpts.factorize())
+        else
+          calculator.evaluate(iDef, genOpts.factorize())._2
+
       val elapsed = System.nanoTime() - start
 
       import scala.concurrent.duration._
@@ -295,6 +306,9 @@ object Main {
       System.err.println(s"Finished in ${elapsed.nanos.toSeconds}s")
 
       iDef.print(System.out, formatter)
+      if (!genOpts.indices().isEmpty)
+        System.out.print(s"_{${genOpts.indices()}}")
+
       if (formatter.fmt == PrintFormat.Maple)
         System.out.print(s" := ")
       else
@@ -303,10 +317,7 @@ object Main {
       if (formatter.tablePrint)
         System.out.print("\n")
 
-      iVal match {
-        case Left(v) => v.print(System.out, formatter)
-        case Right(v) => v.print(System.out, formatter)
-      }
+      result.print(System.out, formatter)
       System.out.print("\n")
 
     } finally

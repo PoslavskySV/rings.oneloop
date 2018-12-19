@@ -1,12 +1,13 @@
 package cc.redberry.rings.oneloop
 
-import java.io.Closeable
+import java.io.{Closeable, PrintStream}
 
 import cc.redberry.core.context.OutputFormat
+import cc.redberry.core.indices.IndicesUtils
+import cc.redberry.core.parser.ParserIndices
 import cc.redberry.core.tensor.Tensors._
 import cc.redberry.core.tensor.{Tensor, Tensors}
 import cc.redberry.core.transformations.DifferentiateTransformation.differentiate
-import cc.redberry.core.transformations.expand.ExpandTransformation
 import cc.redberry.core.utils.TensorUtils
 import cc.redberry.rings.oneloop.Definitions.FactorizedIntegralVal.Factor
 import cc.redberry.rings.oneloop.Definitions._
@@ -14,17 +15,18 @@ import cc.redberry.rings.scaladsl._
 import cc.redberry.rings.scaladsl.syntax._
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.language.implicitConversions
 
 /** Methods for reducing massless integrals */
-class MasslessIntegrals[E](cfRing: Ring[E],
-                           databaseFile: Option[String] = None,
-                           twoPointDef: String = "I2",
-                           threePointDef: String = "I3",
-                           fourPointDef: String = "I4",
-                           fivePointDef: String = "I5",
-                           usedVariables: Seq[String] = Seq("s12", "s23", "s34", "s45", "s15", "s13", "s14", "s24", "s25", "s35"),
-                           doLog: Boolean = true)
+class MasslessIntegrals[E](val cfRing: Ring[E],
+                           val databaseFile: Option[String] = None,
+                           val twoPointDef: String = "I2",
+                           val threePointDef: String = "I3",
+                           val fourPointDef: String = "I4",
+                           val fivePointDef: String = "I5",
+                           val usedVariables: Seq[String] = Seq("s12", "s23", "s34", "s45", "s15", "s13", "s14", "s24", "s25", "s35"),
+                           val doLog: Boolean = true)
   extends Closeable {
 
   // import determinants
@@ -49,6 +51,32 @@ class MasslessIntegrals[E](cfRing: Ring[E],
   val dimension = ring("d")
   /** Type of the result: either raw integral or factorized integral */
   type Result = Either[IntegralVal[Expr], FactorizedIntegralVal[Expr]]
+
+  trait PrintableOps {
+    def print(stream: PrintStream, formatter: PrintFormatter)
+  }
+
+  implicit class ResultOps(f1: Result) extends PrintableOps {
+    def +(f2: Result) = f1 match {
+      case Right(_) => Factorized(f1.right.get + f2.right.get)
+      case Left(_) => NonFactorized(f1.left.get + f2.left.get)
+    }
+
+    def *(f2: Expr) = f1 match {
+      case Right(_) => Factorized(f1.right.get * f2)
+      case Left(_) => NonFactorized(f1.left.get * f2)
+    }
+
+    def zero() = f1 match {
+      case Right(_) => Factorized(FactorizedIntegralVal.zero[Expr])
+      case Left(_) => NonFactorized(IntegralVal.zero[Expr])
+    }
+
+    def print(stream: PrintStream, formatter: PrintFormatter) = f1 match {
+      case Left(v) => v.print(stream, formatter)
+      case Right(v) => v.print(stream, formatter)
+    }
+  }
 
   def Factorized(e: FactorizedIntegralVal[Expr]): Result = Right(e)
 
@@ -281,6 +309,14 @@ class MasslessIntegrals[E](cfRing: Ring[E],
     }
   }
 
+  private[oneloop]
+  def mkI5def(n1: Int, n2: Int, n3: Int, n4: Int, n5: Int, di: Int,
+              s12: Expr, s23: Expr, s34: Expr, s45: Expr, s15: Expr,
+              s13: Expr, s14: Expr, s24: Expr, s25: Expr, s35: Expr) = {
+    val d = dimension + di
+    IntegralDef(fivePointDef, Seq(n1, n2, n3, n4, n5), Seq(d, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
+  }
+
   /** Computes 5-point massless integral, first looking into a cache */
   def I5(n1: Int, n2: Int, n3: Int, n4: Int, n5: Int, di: Int,
          s12: Expr, s23: Expr, s34: Expr, s45: Expr, s15: Expr,
@@ -288,8 +324,7 @@ class MasslessIntegrals[E](cfRing: Ring[E],
          factorized: Boolean = false)
   : (IntegralDef[Expr], Result) = {
     // integral definition
-    val d = dimension + di
-    val iDef = IntegralDef(fivePointDef, Seq(n1, n2, n3, n4, n5), Seq(d, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35))
+    val iDef = mkI5def(n1, n2, n3, n4, n5, di, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35)
     // get from cache or compute from scratch
     (iDef, getOrCompute(iDef, () => __I5(iDef, n1, n2, n3, n4, n5, di, s12, s23, s34, s45, s15, s13, s14, s24, s25, s35), factorized))
   }
@@ -395,14 +430,20 @@ class MasslessIntegrals[E](cfRing: Ring[E],
     IntegralVal(iDef)
   }
 
+  private[oneloop]
+  def mkI4def(n1: Int, n2: Int, n3: Int, n4: Int, di: Int,
+              s12: Expr, s23: Expr, s34: Expr, s14: Expr, s24: Expr, s13: Expr) = {
+    val d = dimension + di
+    IntegralDef(fourPointDef, Seq(n1, n2, n3, n4), Seq(d, s12, s23, s34, s14, s24, s13))
+  }
+
   /** Computes 4-point massless integral, first looking into a cache */
   def I4(n1: Int, n2: Int, n3: Int, n4: Int, di: Int,
          s12: Expr, s23: Expr, s34: Expr, s14: Expr, s24: Expr, s13: Expr,
          factorized: Boolean = false)
   : (IntegralDef[Expr], Result) = {
     // integral definition
-    val d = dimension + di
-    val iDef = IntegralDef(fourPointDef, Seq(n1, n2, n3, n4), Seq(d, s12, s23, s34, s14, s24, s13))
+    val iDef = mkI4def(n1, n2, n3, n4, di, s12, s23, s34, s14, s24, s13)
     // get from cache or compute from scratch
     (iDef, getOrCompute(iDef, () => __I4(iDef, n1, n2, n3, n4, di, s12, s23, s34, s14, s24, s13), factorized))
   }
@@ -488,12 +529,17 @@ class MasslessIntegrals[E](cfRing: Ring[E],
     IntegralVal(iDef)
   }
 
+  private[oneloop]
+  def mkI3def(n1: Int, n2: Int, n3: Int, di: Int, s23: Expr, s13: Expr, s12: Expr) = {
+    val d = dimension + di
+    IntegralDef(threePointDef, Seq(n1, n2, n3), Seq(d, s23, s13, s12))
+  }
+
   /** Computes 3-point massless integral, first looking into a cache */
   def I3(n1: Int, n2: Int, n3: Int, di: Int, s23: Expr, s13: Expr, s12: Expr, factorized: Boolean = false)
   : (IntegralDef[Expr], Result) = {
     // integral definition
-    val d = dimension + di
-    val iDef = IntegralDef(threePointDef, Seq(n1, n2, n3), Seq(d, s23, s13, s12))
+    val iDef = mkI3def(n1, n2, n3, di, s23, s13, s12)
     // get from cache or compute from scratch
     (iDef, getOrCompute(iDef, () => __I3(iDef, n1, n2, n3, di, s23, s13, s12), factorized))
   }
@@ -571,12 +617,18 @@ class MasslessIntegrals[E](cfRing: Ring[E],
     IntegralVal(iDef)
   }
 
+  private[oneloop]
+  def mkI2def(n1: Int, n2: Int, di: Int, s12: Expr) = {
+    // integral definition
+    val d = dimension + di
+    IntegralDef(twoPointDef, Seq(n1, n2), Seq(d, s12))
+  }
+
   /** Computes 2-point massless integral, first looking into a cache */
   def I2(n1: Int, n2: Int, di: Int, s12: Expr, factorized: Boolean = false)
   : (IntegralDef[Expr], Result) = {
     // integral definition
-    val d = dimension + di
-    val iDef = IntegralDef(twoPointDef, Seq(n1, n2), Seq(d, s12))
+    val iDef = mkI2def(n1, n2, di, s12)
     // get from cache or compute from scratch
     (iDef, getOrCompute(iDef, () => __I2(n1, n2, di, s12), factorized))
   }
@@ -615,28 +667,32 @@ class MasslessIntegrals[E](cfRing: Ring[E],
 
   type tProduct = cc.redberry.core.tensor.Product
   type tSum = cc.redberry.core.tensor.Sum
+  type TensorResult = Map[Indexed, Result]
 
-  def evaluate0(integral: IntegralDef[Expr], indices: Seq[String], factorize: Boolean)
-  : Map[Indexed, Result] = applyTensorReduction(Util.mkTensorReduction(indices), integral, factorize)
+  implicit class TensorIntegralValOps(terms: TensorResult) extends PrintableOps {
+    def print(stream: PrintStream, of: PrintFormatter): Unit = {
+      if (terms.isEmpty)
+        stream.print("0")
+      else
+        terms.toSeq.foldLeft(0) { case (i, (tensor, scalar)) =>
+          if (i != 0 || of.tablePrint)
+            stream.print(" + ")
+          if (tensor.tensor.isInstanceOf[tSum]) {
+            stream.print("(")
+            stream.print(tensor.tensor)
+            stream.print(")")
+          } else
+            stream.print(tensor)
 
-  def evaluate1(integral: IntegralDef[Expr], indices: Seq[String], factorize: Boolean)
-  : Map[Indexed, Result] = {
-    if (factorize)
-      applyTensorReduction(Util.mkTensorReduction(indices), evaluate(integral, factorized = true)._2.right.get)
-        .mapValues(Right(_))
-    else
-      applyTensorReductionRaw(Util.mkTensorReduction(indices), evaluate(integral, factorized = false)._2.left.get)
-        .mapValues(Left(_))
-  }
-
-  def evaluate2(integral: IntegralDef[Expr], indices: Seq[String], factorize: Boolean)
-  : Map[Indexed, Result] = {
-    if (factorize)
-      applyTensorReductionAndFactor(Util.mkTensorReduction(indices), evaluate(integral, factorized = false)._2.left.get)
-        .mapValues(Right(_))
-    else
-      applyTensorReductionRaw(Util.mkTensorReduction(indices), evaluate(integral, factorized = false)._2.left.get)
-        .mapValues(Left(_))
+          stream.print(" * ")
+          stream.print("(")
+          scalar.print(stream, of)
+          stream.print(")")
+          if (of.tablePrint)
+            stream.print("\n")
+          i + 1
+        }
+    }
   }
 
   case class Indexed(tensor: Tensor) {
@@ -644,13 +700,41 @@ class MasslessIntegrals[E](cfRing: Ring[E],
 
     override def equals(obj: Any): Boolean =
       obj.isInstanceOf[Indexed] && TensorUtils.equals(tensor, obj.asInstanceOf[Indexed].tensor)
+
+    override def toString: String = tensor.toString
   }
 
-  private[MasslessIntegrals]
+  /**
+    * Evaluates oneloop tensor massless integral
+    *
+    * @param integral  integral
+    * @param indices   tensor indices
+    * @param factorize whether to factorize the result
+    * @return
+    */
+  def evaluate(integral: IntegralDef[Expr], indices: String, factorize: Boolean): TensorResult
+  = evaluate(integral, ParserIndices.parseSimpleIgnoringVariance(s"^{$indices}").toArray.map(IndicesUtils.toString).toSeq, factorize)
+
+  /**
+    * Evaluates oneloop tensor massless integral
+    *
+    * @param integral  integral
+    * @param indices   tensor indices
+    * @param factorize whether to factorize the result
+    * @return
+    */
+  def evaluate(integral: IntegralDef[Expr], indices: Seq[String], factorize: Boolean)
+  : TensorResult = {
+    val formula = Util.mkTensorReduction(integral.indices.length, indices)
+    log(s"Tensor reduction formula: $formula")
+    applyTensorReduction(formula, integral, factorize)
+  }
+
+  private
   def applyTensorReduction(formula: Tensor,
                            integral: IntegralDef[Expr],
                            factorize: Boolean)
-  : Map[Indexed, Result] = {
+  = {
     val terms: Seq[Tensor] =
       if (formula.isInstanceOf[tSum])
         formula.asScala.toSeq
@@ -658,70 +742,70 @@ class MasslessIntegrals[E](cfRing: Ring[E],
         Seq(formula)
 
     terms.map { term =>
-      assert(term.isInstanceOf[tProduct])
-      val dExponent = TensorUtils.Exponent(term, parse("d"))
-      var pTerm = expression(parse("d"), parse("1"))
-        .transform(term)
-        .asInstanceOf[tProduct]
+      val pTerm = term.asInstanceOf[tProduct]
+      val (tPart, sPart) =
+        if (!pTerm.getFactor.isImaginary)
+          (pTerm.getDataSubProduct, pTerm.getIndexlessSubProduct)
+        else
+          (Tensors.multiply(pTerm.getDataSubProduct, pTerm.getFactor),
+            pTerm.getSubProductWithoutFactor.asInstanceOf[tProduct].getIndexlessSubProduct)
 
-      var tPart = pTerm.getDataSubProduct
-      if (!pTerm.getFactor.isReal) {
-        tPart = Tensors.multiply(tPart, pTerm.getFactor)
-        pTerm = pTerm.getSubProductWithoutFactor.asInstanceOf[tProduct]
-      }
+      val sPartTerms =
+        if (sPart.isInstanceOf[tSum])
+          sPart.asScala.toSeq
+        else
+          Seq(sPart)
 
-      val cf = ring(pTerm
-        .getIndexlessSubProduct
-        .toString(OutputFormat.Maple)
-        .replace("**", "^"))
-
-      val iPart =
-        evaluate(
-          integral
-            .copy(args = integral.args.updated(0, integral.args(0) + (dExponent * 2))),
-          factorize)._2
-        match {
-          case Left(l) => Left(l * cf)
-          case Right(r) => Right(r * cf)
-        }
-
-      (Indexed(tPart), iPart)
+      log(s"Computing scalar coefficient for ($tPart) structure of $integral")
+      val results = sPartTerms.map(applyScalarTensorReductionP(_, integral, factorize)).filter(_ != null)
+      (Indexed(tPart), results.fold(results.head.zero()) { _ + _ })
     }.toMap
   }
 
-  private[MasslessIntegrals]
-  def applyTensorReductionRaw(formula: Tensor,
-                              integral: IntegralVal[Expr])
-  : Map[Indexed, IntegralVal[Expr]] = {
-    import scalaz._
-    import Scalaz._
-    implicit val sg: Semigroup[IntegralVal[Expr]] = (f1, f2) => f1 + f2
-
-    integral.terms.map { case (int, cf) =>
-      applyTensorReduction(formula, int, factorize = false)
-        .mapValues(_.left.get * cf)
-    }.fold(Map.empty[Indexed, IntegralVal[Expr]]) { _ |+| _ }
-  }
-
-  private[MasslessIntegrals]
-  def applyTensorReductionAndFactor(formula: Tensor,
-                                    integral: IntegralVal[Expr])
-  : Map[Indexed, FactorizedIntegralVal[Expr]]
-  = applyTensorReductionRaw(formula, integral).mapValues(v => Factor(v))
-
-  private[MasslessIntegrals]
-  def applyTensorReduction(formula: Tensor,
-                           integral: FactorizedIntegralVal[Expr])
-  : Map[Indexed, FactorizedIntegralVal[Expr]]
+  private
+  def applyScalarTensorReductionP(term: Tensor,
+                                  integral: IntegralDef[Expr],
+                                  factorize: Boolean): Result
   = {
-    import scalaz._
-    import Scalaz._
-    implicit val sg: Semigroup[FactorizedIntegralVal[Expr]] = (f1, f2) => f1 + f2
+    assert(TensorUtils.isIndexless(term), term)
 
-    integral.terms.map { case (int, cf) =>
-      applyTensorReduction(formula, int, factorize = true)
-        .mapValues(f => FactorizedIntegralVal(f.right.get.terms.map { case (k, v) => (k, v ++ cf) }))
-    }.foldLeft(Map.empty[Indexed, FactorizedIntegralVal[Expr]]) { _ |+| _ }
+    var pTerm = term
+
+    // dimension shift
+    val dExponent = TensorUtils.Exponent(term, parse("d"))
+    pTerm = expression(parse("d"), parse("1"))
+      .transform(pTerm)
+
+
+    // dimension due to mass derivatives
+    var massDcf = ring(1)
+    val massDexps = mutable.Map.empty[Int, Int]
+    for (i <- integral.indices.indices) {
+      val al = parse(s"alpha[$i]")
+      massDexps(i) = TensorUtils.Exponent(term, al)
+      if (massDexps(i) != 0) {
+        if (integral.indices(i) == 0)
+          return null
+
+        for (e <- 0 until massDexps(i))
+          massDcf *= integral.indices(i) + e
+
+        pTerm = expression(al, parse("1"))
+          .transform(pTerm)
+      }
+    }
+
+    val cf = ring(pTerm
+      .toString(OutputFormat.Maple)
+      .replace("**", "^")) * massDcf
+
+    val shiftedIntegral =
+      integral.copy(
+        args = integral.args.updated(0, integral.args(0) + (dExponent * 2)),
+        indices = integral.indices.zipWithIndex.map { case (e, i) => e + massDexps.getOrElse(i, 0) })
+
+    log(s"Computing shifted integral $shiftedIntegral of $integral")
+    evaluate(shiftedIntegral, factorize)._2 * cf
   }
 }
 

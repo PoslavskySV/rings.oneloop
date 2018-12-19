@@ -236,5 +236,7 @@ object Definitions {
   object FactorizedIntegralVal {
     def Factor[E](iVal: IntegralVal[E])(implicit ring: Ring[E]) =
       FactorizedIntegralVal(iVal.terms.map { case (k, v) => (k, ring.factor(v).toSeq) })
+
+    def zero[E]()(implicit ring: Ring[E]) = Factor(IntegralVal.zero[E])
   }
 }

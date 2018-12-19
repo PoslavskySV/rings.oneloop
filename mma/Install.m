@@ -19,7 +19,7 @@ DoInstall[OptionsPattern[]] := Module[{zip, unzipDir},
   zip = $GetUrl[$GithubRelease];
   unzipDir = zip <> ".dir";
   CreateDirectory[unzipDir];
-  ExtractArchive[unzipDir, OptionValue[InstallTo]];
+  ExtractArchive[unzipDir, zip];
   CopyDirectory[FileNameJoin[{unzipDir, "rings.oneloop-" <> $OneloopVersion}], OptionValue[InstallTo]];
 
   Quiet@DeleteFile[zip];

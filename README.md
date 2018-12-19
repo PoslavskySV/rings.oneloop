@@ -111,5 +111,5 @@ Then run e.g.
 
 ```
 << oneloop`
-I4[1, 1, 1, 1, 2, Factorize -> True, Characteristic -> 0, Indices -> "mn"]
+I3[1, 1, 1, 2, Factorize -> True, Characteristic -> 0, Indices -> "mn"]
 ```
